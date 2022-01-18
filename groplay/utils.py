@@ -1,8 +1,10 @@
-from urllib.parse import urlsplit, urlunsplit
+from typing import Optional, Union
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+
+from bs4 import BeautifulSoup
 
 from django.db.models import DurationField
 from django.db.models.functions import Cast
-from django.http import QueryDict
 from django.utils import timezone
 
 
@@ -10,11 +12,25 @@ def today():
     return timezone.now().date()
 
 
-def append_url_query_params(url: str, params: dict) -> str:
+def append_query_to_url(url: str, params: dict, conditional_params: Optional[dict] = None, safe: str = '') -> str:
+    """
+    Adds GET query from `params` to `url`, or appends it if there already is
+    one.
+
+    `conditional_params` will only be used if GET params with those keys are
+    not already present in the original url or in `params`.
+
+    Return the new url.
+    """
     parts = urlsplit(url)
-    query = QueryDict(parts.query, mutable=True)
-    query.update(params)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, query.urlencode(), parts.fragment))
+    conditional_params = conditional_params or {}
+    qs = {
+        **conditional_params,
+        **parse_qs(parts.query),
+        **params,
+    }
+    parts = parts._replace(query=urlencode(qs, doseq=True, safe=safe))
+    return urlunsplit(parts)
 
 
 def strip_url_query(url: str) -> str:
@@ -60,3 +76,14 @@ class CastToDuration(Cast):
         extra_context.update(multiplier=self.unit['multiplier'])
         template = '%(function)s(%(expressions)s * %(multiplier)d AS %(db_type)s)'
         return super().as_sqlite(compiler, connection, template=template, **extra_context)
+
+
+def soupify(value: Union[str, bytes]) -> BeautifulSoup:
+    """
+    Background: BeautifulSoup wrongly guessed the encoding of API json
+    responses as latin-1, which lead to bastardized strings and much agony
+    until I finally found out why. Always run soup-creation through this!
+    """
+    if isinstance(value, bytes):
+        return BeautifulSoup(value, 'html.parser', from_encoding='utf-8')
+    return BeautifulSoup(value, 'html.parser')

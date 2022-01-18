@@ -1,5 +1,6 @@
 autopep8
-Django
+beautifulsoup4
+Django<4
 django-admin-easy
 djangorestframework
 flake8
