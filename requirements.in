@@ -1,0 +1,14 @@
+autopep8
+Django
+django-admin-easy
+djangorestframework
+flake8
+ipdb
+ipython
+isort
+mypy
+pipdeptree
+progressbar2
+pyflakes
+pylint
+Pillow
