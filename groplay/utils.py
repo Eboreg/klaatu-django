@@ -3,12 +3,15 @@ from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 
-from django.db.models import DurationField
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
+from django.http import HttpRequest
 from django.utils import timezone
 
 
 def today():
+    """Convenient, huh?"""
     return timezone.now().date()
 
 
@@ -87,3 +90,44 @@ def soupify(value: Union[str, bytes]) -> BeautifulSoup:
     if isinstance(value, bytes):
         return BeautifulSoup(value, 'html.parser', from_encoding='utf-8')
     return BeautifulSoup(value, 'html.parser')
+
+
+class ObjectJSONEncoder(DjangoJSONEncoder):
+    """Somewhat enhanced JSON encoder, for when you want that sort of thing."""
+    def default(self, o):
+        if isinstance(o, Model):
+            return str(o.pk)
+        if isinstance(o, QuerySet):
+            return list(o)
+        try:
+            return super().default(o)
+        except TypeError as ex:
+            if hasattr(o, '__dict__'):
+                return o.__dict__
+            raise ex
+
+
+def get_client_ip(request: HttpRequest) -> Optional[str]:
+    """
+    Very basic, but still arguably does a better job than `django-ipware`, as
+    that one doesn't take port numbers into account.
+    """
+    meta_keys = (
+        'HTTP_X_FORWARDED_FOR',
+        'X_FORWARDED_FOR',
+        'HTTP_CLIENT_IP',
+        'HTTP_X_REAL_IP',
+        'HTTP_X_FORWARDED',
+        'HTTP_X_CLUSTER_CLIENT_IP',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'HTTP_VIA',
+        'REMOTE_ADDR',
+    )
+    value = None
+    for key in meta_keys:
+        if request.META.get(key):
+            value = request.META[key].split(':')[0]
+            if value:
+                break
+    return value

@@ -43,8 +43,10 @@ class ResizeImageFieldFile(ImageFieldFile):
                     fp.close()
                 except Exception:
                     logger.error(
-                        'ResizeImageFieldFile: Could not resize image', exc_info=True,
-                        extra={'filename': name, 'instance': self.instance})
+                        'ResizeImageFieldFile: Could not resize image',
+                        exc_info=True,
+                        extra={'filename': name, 'instance': self.instance}
+                    )
 
 
 class ResizeImageField(models.ImageField):
@@ -53,3 +55,16 @@ class ResizeImageField(models.ImageField):
     def __init__(self, max_height=None, max_width=None, **kwargs):
         self.max_height, self.max_width = max_height, max_width
         super().__init__(**kwargs)
+
+
+class TruncatedCharField(models.CharField):
+    """Use for char fields that aren't super important, like in logs."""
+    def to_python(self, value):
+        value = super().to_python(value)
+        if value and len(value) > self.max_length:
+            logger.warning(
+                'Value of TruncatedCharField exceeds max_length',
+                extra={'model': getattr(self, 'model'), 'value': value}
+            )
+            return value[:self.max_length]
+        return value

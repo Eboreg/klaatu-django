@@ -3,3 +3,4 @@
 **/.mypy_cache
 .dmypy.json
 /.venv
+/*.egg-info

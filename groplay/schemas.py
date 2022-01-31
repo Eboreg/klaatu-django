@@ -160,17 +160,21 @@ class BaseSchemaMixin:
                     if isinstance(field, CharField):
                         if field.max_length is not None:
                             max_length_fields[field_name] = [
-                                f'Ensure this field has no more than {field.max_length} characters.']
+                                f'Ensure this field has no more than {field.max_length} characters.'
+                            ]
                         if field.min_length is not None and field.min_length > 1:
                             min_length_fields[field_name] = [
-                                f'Ensure this field has at least {field.min_length} characters.']
+                                f'Ensure this field has at least {field.min_length} characters.'
+                            ]
                     if isinstance(field, IntegerField):
                         if field.min_value is not None:
                             min_value_fields[field_name] = [
-                                f'Ensure this value is greater than or equal to {field.min_value}.']
+                                f'Ensure this value is greater than or equal to {field.min_value}.'
+                            ]
                         if field.max_value is not None:
                             max_value_fields[field_name] = [
-                                f'Ensure this value is less than or equal to {field.max_value}.']
+                                f'Ensure this value is less than or equal to {field.max_value}.'
+                            ]
                     if isinstance(field, ChoiceField):
                         choice_fields[field_name] = ['"foo" is not a valid choice.']
                     if isinstance(field, EmailField):
@@ -185,10 +189,12 @@ class BaseSchemaMixin:
                 responses.append(ExtraResponse(400, 'invalid_choices', 'Invalid enum choices', choice_fields))
             if max_length_fields:
                 responses.append(ExtraResponse(
-                    400, 'max_length_exceeded', 'Maximum string length exceeded', max_length_fields))
+                    400, 'max_length_exceeded', 'Maximum string length exceeded', max_length_fields)
+                )
             if min_length_fields:
                 responses.append(ExtraResponse(
-                    400, 'min_length_subceeded', 'Minimum string length subceeded', min_length_fields))
+                    400, 'min_length_subceeded', 'Minimum string length subceeded', min_length_fields)
+                )
             if email_fields:
                 responses.append(ExtraResponse(400, 'invalid_email', 'Invalid email address', email_fields))
             if min_value_fields:

@@ -19,6 +19,10 @@ class UserMixin:
 
 
 class CreatedByMixin:
+    """
+    Sets `created_by` on a created object to the authenticated user. Of course
+    only makes sense if there is such a field on the model.
+    """
     def create(self, validated_data):
         validated_data = validated_data or {}
         context = getattr(self, 'context', {})
@@ -32,6 +36,10 @@ class CreatedByMixin:
 
 
 def override_language(func):
+    """
+    Used by LanguageMixin below, but could of course be used for any
+    serializer method that needs it.
+    """
     @functools.wraps(func)
     def wrapper(serializer, *args, **kwargs):
         with override(serializer.context.get('language', settings.LANGUAGE_CODE)):
@@ -40,6 +48,13 @@ def override_language(func):
 
 
 class LanguageMixin:
+    """
+    Set self.context['language'] to a language code in order to present the
+    response in that language.
+
+    You probably want the corresponding view to inherit from
+    `groplay.view_mixins.LanguageMixin`.
+    """
     context: Dict[str, Any]
 
     @override_language
@@ -51,8 +66,8 @@ class ImageSerializer(serializers.Serializer):
     """
     Not really a mixin, but placed here for silly circular import reasons.
 
-    Requires the parent object to have a file field called "image", and a
-    char field called "image_alt".
+    Requires the parent object to have a file field called 'image', and a
+    char field called 'image_alt'.
     """
     url = FileURLField(source='image.url')
     alt = serializers.CharField(source='image_alt')

@@ -5,6 +5,11 @@ from django.utils.translation import check_for_language
 
 
 class LanguageMixin:
+    """
+    To be used with Django REST Framework views. Sets 'language' in the
+    context of the serializer (which, preferably, should inherit from
+    `groplay.serializer_mixins.LanguageMixin`).
+    """
     request: Any
 
     def get_language(self) -> str:

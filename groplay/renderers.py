@@ -3,6 +3,8 @@ from rest_framework.renderers import BrowsableAPIRenderer as BaseBrowsableAPIRen
 
 class BrowsableAPIRenderer(BaseBrowsableAPIRenderer):
     def get_filter_form(self, data, view, request):
-        # Just to get rid of those pesky duplicate DB hits that make it
-        # harder to debug and optimize.
+        """
+        Just to get rid of those pesky duplicate DB hits that make it
+        harder to debug and optimize.
+        """
         return None

@@ -9,8 +9,9 @@ from django.http import Http404
 def exception_handler(exc, context):
     """
     Changes from original (in rest_framework.views):
-      - Changed "detail" key to "error"
-      - Pass on Http404 message to NotFound
+      - Changed 'detail' key to 'error'
+      - Pass on Http404 message to NotFound, rather than just calling it
+    without context
     """
     if isinstance(exc, Http404):
         exc = exceptions.NotFound(str(exc))
