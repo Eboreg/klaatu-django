@@ -1,5 +1,5 @@
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union, cast
+from typing import Any, List, Optional, Union
 
 from rest_framework import serializers
 from rest_framework.compat import uritemplate
@@ -14,14 +14,6 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models.fields import NOT_PROVIDED
 from django.utils.encoding import force_str
-
-if TYPE_CHECKING:
-    from rest_framework.schemas.openapi import DRFOpenAPISchema as BaseDRFOpenAPISchema
-
-    class DRFOpenAPISchema(BaseDRFOpenAPISchema):
-        security: List[Dict[str, Any]]
-        tags: List[dict]
-        servers: List[Dict[str, str]]
 
 
 class ExtraResponse:
@@ -45,7 +37,7 @@ class Extra404Response(ExtraResponse):
 
 class BaseSchemaGenerator(_SchemaGenerator):
     def get_schema(self, request=None, public=False):
-        schema = cast('DRFOpenAPISchema', super().get_schema(request, public))
+        schema = super().get_schema(request, public)
         schema.update({
             'security': self.get_security(),
             'tags': self.get_tags(),
@@ -189,20 +181,34 @@ class BaseSchemaMixin:
                 responses.append(ExtraResponse(400, 'invalid_choices', 'Invalid enum choices', choice_fields))
             if max_length_fields:
                 responses.append(ExtraResponse(
-                    400, 'max_length_exceeded', 'Maximum string length exceeded', max_length_fields)
-                )
+                    400,
+                    'max_length_exceeded',
+                    'Maximum string length exceeded',
+                    max_length_fields
+                ))
             if min_length_fields:
                 responses.append(ExtraResponse(
-                    400, 'min_length_subceeded', 'Minimum string length subceeded', min_length_fields)
-                )
+                    400,
+                    'min_length_subceeded',
+                    'Minimum string length subceeded',
+                    min_length_fields
+                ))
             if email_fields:
                 responses.append(ExtraResponse(400, 'invalid_email', 'Invalid email address', email_fields))
             if min_value_fields:
                 responses.append(ExtraResponse(
-                    400, 'min_value_subceeded', 'Minimum integer value subceeded', min_value_fields))
+                    400,
+                    'min_value_subceeded',
+                    'Minimum integer value subceeded',
+                    min_value_fields
+                ))
             if max_value_fields:
                 responses.append(ExtraResponse(
-                    400, 'max_value_exceeded', 'Maximum integer value exceeded', max_value_fields))
+                    400,
+                    'max_value_exceeded',
+                    'Maximum integer value exceeded',
+                    max_value_fields
+                ))
         return responses
 
     def get_operation_summary(self, path, method):
@@ -471,7 +477,8 @@ class BaseSchema(BaseSchemaMixin, AutoSchema):
             except (APIException, AttributeError):
                 warnings.warn(
                     f'{self.view.__class__.__name__}.get_serializer() raised an exception during schema generation. '
-                    f'Serializer fields will not be generated for {method} {path}.')
+                    f'Serializer fields will not be generated for {method} {path}.'
+                )
                 return None
         return super().get_serializer(path, method)
 

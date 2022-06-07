@@ -28,9 +28,11 @@ class UserObjectPermissions(BasePermission):
         except AssertionError:
             # This is _probably_ because the view does not use a queryset
             return True
-        if request.method in self.VERB_MAPPING and \
-                hasattr(queryset, 'model') and \
-                hasattr(queryset.model, 'has_permission'):
+        if (
+            request.method in self.VERB_MAPPING and
+            hasattr(queryset, 'model') and
+            hasattr(queryset.model, 'has_permission')
+        ):
             return queryset.model.has_permission(request.user, verb=self.VERB_MAPPING[request.method])
         return True
 

@@ -1,3 +1,1 @@
-__version__ = '1.0.3'
-
-default_app_config = 'groplay.apps.GroplayConfig'
+__version__ = '2.0.0'

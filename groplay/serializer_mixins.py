@@ -4,6 +4,7 @@ from typing import Any, Dict
 from rest_framework import serializers
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.utils.translation import override
 
 from .serializer_fields import FileURLField
@@ -13,7 +14,7 @@ class UserMixin:
     def get_user(self):
         context = getattr(self, 'context', {})
         assert 'request' in context, 'request must be included in serializer context'
-        assert isinstance(context['request'].user, settings.AUTH_USER_MODEL), \
+        assert isinstance(context['request'].user, get_user_model()), \
             'context["request"].user must be a User object'
         return context['request'].user
 
@@ -28,7 +29,7 @@ class CreatedByMixin:
         context = getattr(self, 'context', {})
         try:
             user = context['request'].user
-            if isinstance(user, settings.AUTH_USER_MODEL):
+            if isinstance(user, get_user_model()):
                 validated_data.update(created_by=user)
         except (AttributeError, KeyError):
             pass

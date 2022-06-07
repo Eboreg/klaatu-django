@@ -1,18 +1,23 @@
-from typing import Optional, Union
+import re
+from datetime import date
+from importlib import import_module
+from math import ceil, floor, log10
+from types import ModuleType
+from typing import Any, Iterable, Iterator, Optional, SupportsFloat, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
+from dateutil.relativedelta import relativedelta
 
+from django.conf import settings
+from django.core.exceptions import ViewDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
 from django.http import HttpRequest
+from django.urls import URLPattern, URLResolver
 from django.utils import timezone
-
-
-def today():
-    """Convenient, huh?"""
-    return timezone.now().date()
+from django.utils.translation import ngettext
 
 
 def append_query_to_url(url: str, params: dict, conditional_params: Optional[dict] = None, safe: str = '') -> str:
@@ -68,7 +73,7 @@ class CastToDuration(Cast):
 
     def as_postgresql(self, compiler, connection, **extra_context):
         extra_context.update(unit=self.unit['name'])
-        return self.as_sql(
+        return self.as_sql(  # type: ignore
             compiler,
             connection,
             template='(%(expressions)s || \' %(unit)s\')::%(db_type)s',
@@ -97,7 +102,7 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         if isinstance(o, Model):
             return str(o.pk)
-        if isinstance(o, QuerySet):
+        if isinstance(o, QuerySet):  # type: ignore
             return list(o)
         try:
             return super().default(o)
@@ -131,3 +136,274 @@ def get_client_ip(request: HttpRequest) -> Optional[str]:
             if value:
                 break
     return value
+
+
+def relativedelta_rounded(dt1: timezone.datetime, dt2: timezone.datetime) -> relativedelta:
+    """
+    Rounds to the nearest "time unit", using perhaps arbitrary algorithms.
+    """
+    # First make sure both are naive OR aware:
+    if timezone.is_naive(dt1) and not timezone.is_naive(dt2):
+        dt1 = timezone.make_aware(dt1)
+    elif timezone.is_naive(dt2) and not timezone.is_naive(dt1):
+        dt2 = timezone.make_aware(dt2)
+    delta = relativedelta(dt1, dt2)
+    # >= 1 months or >= 25 days: return years + rounded months
+    if delta.years or delta.months or delta.days >= 25:
+        return relativedelta(years=delta.years, months=delta.months + round(delta.days / 30))
+    # 7 - 24 days: return rounded weeks
+    if delta.days >= 7:
+        return relativedelta(weeks=round(delta.days / 7))
+    # Dates are different: return that difference as number of days
+    if dt1.day != dt2.day:
+        return relativedelta(
+            timezone.datetime(dt1.year, dt1.month, dt1.day),
+            timezone.datetime(dt2.year, dt2.month, dt2.day)
+        )
+    # >= 1 hour: return rounded hours
+    if delta.hours:
+        return relativedelta(hours=delta.hours + round(delta.minutes / 60))
+    # >= 1 minute: return minutes (not rounded!)
+    if delta.minutes:
+        return relativedelta(minutes=delta.minutes)
+    # Don't bother with microseconds :P
+    return delta
+
+
+def timedelta_formatter(
+    value: Union[timezone.timedelta, float, int],
+    short_format: bool = False,
+    rounded: bool = False
+) -> str:
+    # If value is float or int, we suppose it's number of seconds:
+    if isinstance(value, (int, float)):
+        seconds = int(value)
+    else:
+        seconds = int(value.total_seconds())
+    hours = int(seconds / 3600)
+    seconds -= (hours * 3600)
+    minutes = int(seconds / 60)
+    seconds -= (minutes * 60)
+    if rounded:
+        if minutes > 30:
+            hours += 1
+        if seconds > 30:
+            minutes += 1
+    if short_format:
+        time_str = ""
+        if hours:
+            time_str += "{}h".format(hours)
+        if minutes and (not rounded or not hours):
+            time_str += "{}m".format(minutes)
+        if seconds and (not rounded or (not hours and not minutes)):
+            time_str += "{}s".format(seconds)
+        return time_str or "0s"
+    else:
+        time_list = []
+        if hours:
+            time_list.append(ngettext("%(hours)d hour", "%(hours)d hours", hours) % {"hours": hours})
+        if minutes and (not rounded or not hours):
+            time_list.append(ngettext("%(min)d min", "%(min)d min", minutes) % {"min": minutes})
+        if seconds and (not rounded or (not hours and not minutes)):
+            time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
+        return ", ".join(time_list)
+
+
+def daterange(start_date: date, end_date: date) -> Iterator[date]:
+    for n in range(int((end_date - start_date).days)):
+        yield start_date + timezone.timedelta(days=n)
+
+
+def percent_rounded(part: Union[int, float], whole: Union[int, float]) -> int:
+    if not whole:
+        return 0
+    return round(part / whole * 100)
+
+
+def extract_views_from_urlpatterns(
+    urlpatterns=None,
+    base="",
+    namespace=None,
+    app_name=None,
+    app_names=None,
+    only_parameterless=False,
+    urlkwargs=[]
+):
+    views = {}
+    if urlpatterns is None:
+        root_urlconf = import_module(settings.ROOT_URLCONF)
+        assert hasattr(root_urlconf, "urlpatterns")
+        urlpatterns = getattr(root_urlconf, "urlpatterns", [])
+        app_name = root_urlconf.__package__
+    for p in urlpatterns:
+        if isinstance(p, URLPattern) and (app_names is None or app_name in app_names):
+            try:
+                if only_parameterless and p.pattern.regex.groups > 0:
+                    continue
+                elif p.name and namespace:
+                    view_name = f"{namespace}:{p.name}"
+                elif p.name:
+                    view_name = p.name
+                else:
+                    continue
+                views[view_name] = {
+                    "app_name": app_name,
+                    "url": base + str(p.pattern),
+                    "urlkwargs": urlkwargs + list(p.pattern.regex.groupindex),
+                }
+            except ViewDoesNotExist:
+                continue
+        elif isinstance(p, URLResolver):
+            if p.app_name == "admin":
+                # Hack: Never include admin urls
+                continue
+            if only_parameterless and p.pattern.regex.groups > 0:
+                continue
+            try:
+                patterns = p.url_patterns
+            except ImportError:
+                continue
+            if namespace and p.namespace:
+                _namespace = f"{namespace}:{p.namespace}"
+            else:
+                _namespace = p.namespace or namespace
+            if isinstance(p.urlconf_module, ModuleType):
+                try:
+                    _app_name = p.urlconf_module.app_name
+                except AttributeError:
+                    _app_name = p.urlconf_module.__package__
+            else:
+                _app_name = app_name
+            views.update(extract_views_from_urlpatterns(
+                urlpatterns=patterns,
+                base=base + str(p.pattern),
+                namespace=_namespace,
+                app_name=_app_name,
+                app_names=app_names,
+                only_parameterless=only_parameterless,
+                urlkwargs=urlkwargs + list(p.pattern.regex.groupindex)
+            ))
+    return {
+        k: v
+        for k, v in sorted(
+            views.items(),
+            key=lambda kv: kv[1]["app_name"] + kv[0]
+        )
+    }
+
+
+def round_to_n(x: Union[int, float], n: int) -> SupportsFloat:
+    """
+    Rounds x to n significant digits, except if the result is a whole number
+    it is cast to int
+    """
+    if x == 0:
+        return x
+    else:
+        result = round(x, -int(floor(log10(abs(x)))) + (n - 1))
+        return int(result) if not result % 1 else result
+
+
+def rounded_percentage(part: Union[int, float], whole: Union[int, float]) -> SupportsFloat:
+    """Percentage rounded to 3 significant digits"""
+    return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
+
+
+def round_up_timedelta(td: timezone.timedelta) -> timezone.timedelta:
+    """
+    If td > 30 min, round up to nearest hour. Otherwise, to nearest 10
+    minute mark. Could be extended for higher time units, but nevermind now.
+    """
+    td_minutes = td.total_seconds() / 60
+    if td_minutes > 30:
+        return timezone.timedelta(hours=ceil(td_minutes / 60))
+    if td_minutes >= 10:
+        return timezone.timedelta(minutes=int(td_minutes / 10) * 10 + 10)
+    return timezone.timedelta(minutes=10)
+
+
+def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
+    """
+    Pretty formatter that outputs stuff the way I want it, no more, no less
+    """
+    def format_value(v: Any) -> str:
+        return f"'{v}'" if isinstance(v, str) else repr(v)
+
+    def is_scalar(v: Any) -> bool:
+        return isinstance(v, str) or not isinstance(v, Iterable)
+
+    if isinstance(obj, dict):
+        ret = "{"
+        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(list(obj.values())[0]))
+        if len(obj) > 0:
+            if multiline:
+                ret += "\n"
+            for key, value in obj.items():
+                if multiline:
+                    ret += " " * (current_depth * indent + indent)
+                ret += format_value(key) + ": "
+                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
+                if multiline:
+                    ret += ",\n"
+            if multiline:
+                ret += " " * (current_depth * indent)
+        ret += "}"
+    elif isinstance(obj, (list, QuerySet)):  # type: ignore
+        ret = "["
+        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(obj[0]))
+        if len(obj) > 0:
+            if multiline:
+                ret += "\n"
+            for value in obj:
+                if multiline:
+                    ret += " " * (current_depth * indent + indent)
+                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
+                if multiline:
+                    ret += ",\n"
+            if multiline:
+                ret += " " * (current_depth * indent)
+        ret += "]"
+    else:
+        ret = format_value(obj)
+
+    return ret
+
+
+def int_to_string(value: Optional[int], language: str, nbsp: bool = False) -> str:
+    # Format integer with correct thousand separators
+    if value is None:
+        return ""
+    if language == "sv":
+        # We probably should be checking for locale rather than language, but
+        # whatever
+        separator = " "
+    else:
+        separator = "."
+    if separator == " " and nbsp:
+        separator = "&nbsp;"
+    # Neat line of code, huh? :)
+    # 1. Use absolute value to get rid of minus sign
+    # 2. Reverse str(value) in order to group characters from the end
+    # 3. Split it by groups of 3 digits
+    # 4. Remove empty values generated by re.split()
+    # 5. Re-reverse the digits in each group & join them with separator string
+    # 6. Re-reverse the order of the groups
+    # 7. Add minus sign if value was negative
+    return (
+        ("-" if value < 0 else "") +
+        separator.join([v[::-1] for v in re.split(r"(\d{3})", str(abs(value))[::-1]) if v][::-1])
+    )
+
+
+def circulate(lst: Union[list, tuple], rounds: int) -> list:
+    """
+    Shifts `lst` left `rounds` times. Good for e.g. circulating colours in
+    a graph.
+    """
+    if isinstance(lst, tuple):
+        lst = list(lst)
+    if lst and rounds:
+        for i in range(rounds):
+            val = lst.pop(0)
+            lst.append(val)
+    return lst

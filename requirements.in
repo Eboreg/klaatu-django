@@ -12,3 +12,4 @@ pipdeptree
 progressbar2
 pyflakes
 pylint
+python-dateutil

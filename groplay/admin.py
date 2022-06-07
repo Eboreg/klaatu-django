@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.contrib.admin.options import BaseModelAdmin
 
 
 class BooleanListFilter(admin.SimpleListFilter):
@@ -20,19 +21,28 @@ class NoDeleteActionMixin:
         return actions
 
 
-class CreatedByMixin:
-    def save_formset(self, request, form, formset, change):
-        # As a bonus, let's also set created_by on any applicable, newly
-        # created inline objects.
-        for inline_form in formset.forms:
-            if inline_form.instance.pk is None and hasattr(inline_form.instance, 'created_by'):
-                inline_form.instance.created_by = request.user
-        return super().save_formset(request, form, formset, change)  # type: ignore
-
+class SetCreatedByAdmin(admin.ModelAdmin):
+    # For use in admin pages for models with `created_by` fields
     def save_model(self, request, obj, form, change):
         if not change:
-            obj.created_by = request.user
-        super().save_model(request, obj, form, change)  # type: ignore
+            try:
+                obj.created_by = request.user
+            except AttributeError:
+                pass
+        super().save_model(request, obj, form, change)
 
-    def get_readonly_fields(self, request, obj=None):
-        return ('created', 'created_by', *super().get_readonly_fields(request, obj=obj))  # type: ignore
+
+class SetCreatedByInlineAdmin(BaseModelAdmin):
+    # Set `created_by` on inline objects in admin
+    def save_formset(self, request, form, formset, change):
+        formset.save()
+        for obj in formset.new_objects:
+            try:
+                obj.created_by = request.user
+                obj.save()
+            except AttributeError:
+                pass
+
+
+class TabularManyToManyInline(admin.TabularInline):
+    template = "admin/edit_inline/tabular_manytomany.html"

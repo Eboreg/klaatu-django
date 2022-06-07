@@ -1,0 +1,16 @@
+{% load static i18n %}
+
+<div class="preloader{% if preloader.fixed %} fixed{% endif %}{% if preloader.show %} show{% endif %}{% if preloader.small %} small{% endif %}"
+  {% if preloader.id %} id="{{ preloader.id }}"{% endif %}>
+  <div class="contents">
+    {% block contents %}
+    <h1 class="text">
+      {% trans "Loading, please wait" %}
+      <span class="ellipsis-container">
+        <span class="ellipsis-bg">...</span>
+        <span class="ellipsis">...</span>
+      </span>
+    </h1>
+    {% endblock contents %}
+  </div>
+</div>

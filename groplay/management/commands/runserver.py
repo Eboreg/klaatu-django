@@ -22,16 +22,15 @@ class WatchmanReloader(autoreload.WatchmanReloader):
     """
     def watched_files(self, include_globs):
         for f in super().watched_files(include_globs=include_globs):
-            if not f.as_posix().startswith('/usr') and \
-                    not f.as_posix().startswith('/etc') and \
-                    not Path(django.__file__).parent.parent in f.parents:
+            if (
+                not f.as_posix().startswith('/usr') and
+                not f.as_posix().startswith('/etc') and
+                not Path(django.__file__).parent.parent in f.parents
+            ):
                 yield f
 
 
 class Command(RunServerCommand):
-    default_addr = 'localhost'
-    default_port = '9000'
-
     def run(self, **options):
         if options['use_reloader']:
             run_with_reloader(self.inner_run, **options)  # type: ignore

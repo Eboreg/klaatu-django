@@ -1,0 +1,5 @@
+{% extends "admin/edit_inline/tabular.html" %}
+
+{% block delete_header %}
+Delete {{ inline_admin_formset.opts.verbose_name }} from {{ opts.verbose_name }}?
+{% endblock delete_header %}

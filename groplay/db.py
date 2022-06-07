@@ -1,13 +1,50 @@
 import io
 import logging
-from typing import Optional, Tuple
+import pickle
+from typing import Optional, Tuple, Union
 
 from PIL import Image
 
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import BinaryField, Case, F, FloatField, IntegerField, Q, Value as V, When
+from django.db.models.expressions import Combinable, Expression
 from django.db.models.fields.files import ImageFieldFile
+from django.db.models.functions import Cast
 
 logger = logging.getLogger(__name__)
+
+
+def CorrectRound(field: Union[str, Combinable]) -> Expression:
+    """Correctly rounds a numeric field to int
+
+    Formula: int(value + (int(value) % 2))
+    So:
+    CorrectRound(4.5) = int(4.5 + (4 % 2)) = int(4.5 + 0) = 4
+    CorrectRound(3.5) = int(3.5 + (3 % 2)) = int(3.5 + 1) = 4
+
+    Only used by PercentRounded.
+    """
+    if isinstance(field, str):
+        field = F(field)
+    return Cast(
+        field + (Cast(field, IntegerField()) % V(2)),
+        # field + Mod(Cast(field, IntegerField()), V(2)),
+        IntegerField()
+    )
+
+
+def PercentRounded(part: str, whole: str) -> Expression:
+    """
+    Given two numeric SQL fields, return a percentage as integer.
+    """
+    return Cast(
+        Case(
+            When(Q(**{whole: 0}), then=V(0)),
+            default=CorrectRound(Cast(part, FloatField()) / Cast(whole, FloatField()) * 100)
+        ),
+        IntegerField()
+    )
 
 
 class ResizeImageFieldFile(ImageFieldFile):
@@ -38,7 +75,8 @@ class ResizeImageFieldFile(ImageFieldFile):
                     fp = io.BytesIO()
                     resized = image.resize(self.get_target_size(content.image))
                     resized.save(fp, format=image.format)
-                    self.storage.delete(self.name)
+                    if self.name:
+                        self.storage.delete(self.name)
                     self.save(name, fp, save=save)
                     fp.close()
                 except Exception:
@@ -61,10 +99,30 @@ class TruncatedCharField(models.CharField):
     """Use for char fields that aren't super important, like in logs."""
     def to_python(self, value):
         value = super().to_python(value)
-        if value and len(value) > self.max_length:
+        if value and self.max_length and len(value) > self.max_length:
             logger.warning(
                 'Value of TruncatedCharField exceeds max_length',
                 extra={'model': getattr(self, 'model'), 'value': value}
             )
             return value[:self.max_length]
+        return value
+
+
+class PickleField(BinaryField):
+    description = "Auto-pickled and unpickled object"
+
+    def get_prep_value(self, value):
+        return pickle.dumps(value)
+
+    def from_db_value(self, value, expression, connection):
+        if value is None:
+            return value
+        return pickle.loads(value)
+
+    def to_python(self, value):
+        if isinstance(value, bytes):
+            try:
+                return pickle.loads(value)
+            except Exception as e:
+                raise ValidationError(f"{e.__class__} error in unpickling: {str(e)}")
         return value
