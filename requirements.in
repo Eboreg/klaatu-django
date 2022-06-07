@@ -13,3 +13,4 @@ progressbar2
 pyflakes
 pylint
 python-dateutil
+types-python-dateutil
