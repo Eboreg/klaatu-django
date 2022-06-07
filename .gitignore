@@ -4,3 +4,4 @@
 .dmypy.json
 /.venv
 /*.egg-info
+/build
