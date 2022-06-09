@@ -6,18 +6,13 @@ They can also be filled in some other way, like via openModalOnLoad() which
 takes them from GET params.
 {% endcomment %}
 
-<div
-  class="modal {{ modal.classes }} {% block classes %}{% endblock classes %}"
-  id="{{ modal.id }}"
-  role="dialog"
-  data-required-params="{{ modal.required_params|join:" " }} {% block required_params %}{% endblock required_params %}"
-  data-optional-params="{{ modal.optional_params|join:" " }} {% block optional_params %}{% endblock optional_params %}"
-  {% for param in modal.required_params|add:modal.optional_params %}
-  data-{{ param }}="{% map_to_context param %}"
-  {% endfor %}
->
-  <div class="modal-dialog{% if modal.scrollable %} modal-dialog-scrollable{% endif %}{% if modal.large %} modal-lg{% endif %}">
-    {% block outer %}
+<div class="modal {{ modal.classes }} {% block classes %}{% endblock classes %}" id="{{ modal.id }}" role="dialog"
+  data-required-params="{{ modal.required_params|join:" " }}"
+  data-optional-params="{{ modal.optional_params|join:" " }}"
+  {% for param in modal.required_params|add:modal.optional_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}>
+  <div
+  class="modal-dialog{% if modal.scrollable %} modal-dialog-scrollable{% endif %}{% if modal.large %} modal-lg{% endif %}{% if modal.center %} modal-dialog-centered{% endif %}">
+  {% block outer %}
     <div class="modal-content">
       {% block content %}
       {% block header %}

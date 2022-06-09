@@ -108,13 +108,14 @@ def urljoin_tag(base, url) -> str:
 def modal(
     context: template.RequestContext,
     template_name: str,
-    modal_id: str = "",
-    classes: str = "",
-    required_params: str = "",
-    optional_params: str = "",
-    footer: bool = True,
-    large: bool = False,
+    modal_id="",
+    classes="",
+    required_params="",
+    optional_params="",
+    footer=True,
+    large=False,
     scrollable=False,
+    center=False,
     **kwargs
 ):
     """
@@ -144,6 +145,7 @@ def modal(
         "footer": footer,
         "large": large,
         "scrollable": scrollable,
+        "center": center,
     }
     context.update(kwargs)
     return mark_safe(render_to_string(template_name, context.flatten()))
@@ -159,6 +161,7 @@ def dynamic_modal(
     large=False,
     always_load=False,
     scrollable=False,
+    center=False,
 ):
     """
     Includes the Bootstrap modal "skeleton" from groplay/modals/dynamic.html
@@ -190,6 +193,7 @@ def dynamic_modal(
             "large": large,
             "always_load": always_load,
             "scrollable": scrollable,
+            "center": center,
         },
     }
 
