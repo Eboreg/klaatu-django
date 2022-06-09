@@ -1,3 +1,5 @@
+{% load groplay %}
+
 {% block outer %}
 <div class="modal-content">
   {% block content %}
@@ -15,5 +17,10 @@
   </div>
   <div class="modal-footer">{% block footer %}{% endblock footer %}</div>
   {% endblock content %}
+  {% if modal.large %}
+  {% preloader %}
+  {% else %}
+  {% preloader small=True %}
+  {% endif %}
 </div>
 {% endblock outer %}
