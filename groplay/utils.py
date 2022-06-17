@@ -3,7 +3,7 @@ from datetime import date
 from importlib import import_module
 from math import ceil, floor, log10
 from types import ModuleType
-from typing import Any, Iterable, Iterator, Optional, SupportsFloat, Union
+from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, Union, TypeVar
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -18,6 +18,9 @@ from django.http import HttpRequest
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.translation import ngettext
+
+
+_T = TypeVar("_T")
 
 
 def append_query_to_url(url: str, params: dict, conditional_params: Optional[dict] = None, safe: str = '') -> str:
@@ -407,3 +410,29 @@ def circulate(lst: Union[list, tuple], rounds: int) -> list:
             val = lst.pop(0)
             lst.append(val)
     return lst
+
+
+def getitem_nullable(seq: Sequence[_T], idx: int, cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+    """
+    If `seq` has an item at position `idx`, return that item. Otherwise return
+    None. Similar to how QuerySet's first() & last() operate.
+
+    With `cond` set, it first filters `seq` for items where this function
+    evaluates as True, then tries to get item `idx` from the resulting list.
+
+    Example:
+
+    seq = [23, 43, 12, 56, 75, 1]
+    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
+    # second_even == 56
+    seq = [1, 2, 3, 5, 7]
+    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
+    # second_even == None
+    """
+    try:
+        if cond is not None:
+            return [item for item in seq if cond(item)][idx]
+        else:
+            return seq[idx]
+    except IndexError:
+        return None
