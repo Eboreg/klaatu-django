@@ -12,7 +12,7 @@ takes them from GET params.
   {% for param in modal.required_params|add:modal.optional_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}
   tabindex="-1">
   <div
-  class="modal-dialog{% if modal.scrollable %} modal-dialog-scrollable{% endif %}{% if modal.large %} modal-lg{% endif %}{% if modal.center %} modal-dialog-centered{% endif %}">
+  class="modal-dialog {% if modal.scrollable %}modal-dialog-scrollable{% endif %} {% if modal.large %}modal-lg{% endif %} {% if modal.center %}modal-dialog-centered{% endif %}">
   {% block outer %}
     <div class="modal-content">
       {% block content %}
