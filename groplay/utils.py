@@ -436,3 +436,7 @@ def getitem_nullable(seq: Sequence[_T], idx: int, cond: Optional[Callable[[_T], 
             return seq[idx]
     except IndexError:
         return None
+
+
+def getitem0_nullable(seq: Sequence[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+    return getitem_nullable(seq, 0, cond)
