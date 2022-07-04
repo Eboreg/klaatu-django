@@ -1,9 +1,12 @@
+import copy
 import re
+import time
 from datetime import date
 from importlib import import_module
 from math import ceil, floor, log10
+from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, Union, TypeVar
+from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -440,3 +443,16 @@ def getitem_nullable(seq: Sequence[_T], idx: int, cond: Optional[Callable[[_T], 
 
 def getitem0_nullable(seq: Sequence[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
     return getitem_nullable(seq, 0, cond)
+
+
+def time_queryset(queryset: QuerySet, iterations=10):
+    """Purely a testing function to be used in the CLI."""
+    measurements = []
+    for i in range(iterations):
+        start_time = time.time()
+        list(copy.deepcopy(queryset))
+        elapsed_time = time.time() - start_time
+        measurements.append(elapsed_time)
+        print(f"[{i + 1}/{iterations}: {elapsed_time}")
+    print(f"Mean:   {mean(measurements)}")
+    print(f"Median: {median(measurements)}")
