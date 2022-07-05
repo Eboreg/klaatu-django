@@ -445,14 +445,28 @@ def getitem0_nullable(seq: Sequence[_T], cond: Optional[Callable[[_T], bool]] = 
     return getitem_nullable(seq, 0, cond)
 
 
-def time_queryset(queryset: QuerySet, iterations=10):
+def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
     """Purely a testing function to be used in the CLI."""
+    last_percent = 0
     measurements = []
+
     for i in range(iterations):
         start_time = time.time()
-        list(copy.deepcopy(queryset))
+        for queryset in querysets:
+            list(copy.deepcopy(queryset))
         elapsed_time = time.time() - start_time
         measurements.append(elapsed_time)
-        print(f"[{i + 1}/{iterations}: {elapsed_time}")
+        if quiet:
+            percent = int((i + 1) / iterations * 100)
+            if not percent % 10 and percent != last_percent:
+                last_percent = percent
+                output = f"{percent}%"
+                if percent == 100:
+                    print(output)
+                else:
+                    print(output, end=" ... ", flush=True)
+        else:
+            print(f"[{i + 1}/{iterations}: {elapsed_time}")
+
     print(f"Mean:   {mean(measurements)}")
     print(f"Median: {median(measurements)}")
