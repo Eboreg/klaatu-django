@@ -199,23 +199,21 @@ def dynamic_modal(
 
 
 @register.inclusion_tag("groplay/preloader.html")
-def preloader(id: Optional[str] = None, fixed=False, show=False, small=False):
+def preloader(id: Optional[str] = None, fixed=False, show=False, large=False):
     """
     Inserts a .preloader element, which will then be shown and hidden by JS.
     Extend groplay/preloader.html to customize it.
 
     @param fixed Preloader should have position: fixed (default: absolute)
     @param show Show preloader on load
-    @param small Shrink font & image sizes to 75%
-    `size` should be a percentage string, which probably should not be less
-    than "75%".
+    @param large If False, shrink font & image sizes to 75%; else 100%
     """
     return {
         "preloader": {
             "id": id,
             "fixed": fixed,
             "show": show,
-            "small": small,
+            "large": large,
         }
     }
 
