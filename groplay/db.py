@@ -15,6 +15,11 @@ from django.db.models.functions import Cast, Round
 logger = logging.getLogger(__name__)
 
 
+def TrueIf(*args, **kwargs) -> Expression:
+    """Convenience method: 'if all the arguments are true, then true'."""
+    return Case(When(Q(*args, **kwargs), then=V(True)), default=V(False))
+
+
 def CorrectRound(field: Union[str, Combinable]) -> Expression:
     """
     Correctly rounds a numeric field to int.
