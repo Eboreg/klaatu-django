@@ -20,6 +20,16 @@ def TrueIf(*args, **kwargs) -> Expression:
     return Case(When(Q(*args, **kwargs), then=V(True)), default=V(False))
 
 
+def TrueIfAny(*args, **kwargs) -> Expression:
+    """If _any_ of the arguments is true, then true."""
+    conds = Q()
+    for arg in args:
+        conds |= Q(arg)
+    for key, value in kwargs.items():
+        conds |= Q(**{key: value})
+    return Case(When(conds, then=V(True)), default=V(False))
+
+
 def CorrectRound(field: Union[str, Combinable]) -> Expression:
     """
     Correctly rounds a numeric field to int.
