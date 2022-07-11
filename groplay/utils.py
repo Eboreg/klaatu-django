@@ -22,7 +22,6 @@ from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.translation import ngettext
 
-
 _T = TypeVar("_T")
 
 
