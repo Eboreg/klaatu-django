@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 from os.path import basename, splitext
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
 from django import template
@@ -137,7 +137,9 @@ def modal(
     if not modal_id:
         modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
 
-    context["modal"] = {
+    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
+
+    render_context["modal"] = {
         "required_params": required_params.split(" ") if required_params else [],
         "optional_params": optional_params.split(" ") if optional_params else [],
         "id": modal_id,
@@ -147,8 +149,8 @@ def modal(
         "scrollable": scrollable,
         "center": center,
     }
-    context.update(kwargs)
-    return mark_safe(render_to_string(template_name, context.flatten()))
+    render_context.update(kwargs)
+    return mark_safe(render_to_string(template_name, render_context))
 
 
 @register.inclusion_tag("groplay/modals/dynamic.html")
