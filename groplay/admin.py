@@ -1,13 +1,16 @@
-from typing import Optional
+from typing import Optional, Sequence, Type
 
 from django.contrib import admin
-from django.contrib.admin.options import BaseModelAdmin
+from django.contrib.admin.options import BaseModelAdmin, InlineModelAdmin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.utils import quote
 from django.db.models import Model, QuerySet
 from django.db.models.fields.reverse_related import ForeignObjectRel
+from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
+
+from .typing import AdminFieldsetsType, AdminFieldsType, FormType
 
 
 class BooleanListFilter(admin.SimpleListFilter):
@@ -197,3 +200,75 @@ class ExtendedTabularInline(RelatedLinkMixin, admin.TabularInline):
 
 class ExtendedStackedInline(RelatedLinkMixin, admin.StackedInline):
     pass
+
+
+class SeparateAddMixin(admin.ModelAdmin):
+    """
+    Use custom settings when a change form is used for adding a new object,
+    rather than editing an existing one. Mirrors the `exclude`, `fields`,
+    `fieldsets`, `form`, `inlines`, and `readonly_fields` properties. If a
+    property is None, the regular one will be used instead.
+    """
+    add_exclude: Optional[Sequence[str]] = None
+    add_fields: Optional[AdminFieldsType] = None
+    add_fieldsets: Optional[AdminFieldsetsType] = None
+    add_form: Optional[FormType] = None
+    add_inlines: Optional[Sequence[Type[InlineModelAdmin]]] = None
+    add_readonly_fields: Optional[Sequence[str]] = None
+
+    def get_add_exclude(self, request: HttpRequest) -> Optional[Sequence[str]]:
+        return self.add_exclude
+
+    def get_add_fields(self, request: HttpRequest) -> Optional[AdminFieldsType]:
+        return self.add_fields
+
+    def get_add_fieldsets(self, request: HttpRequest) -> Optional[AdminFieldsetsType]:
+        return self.add_fieldsets
+
+    def get_add_inlines(self, request: HttpRequest) -> Optional[Sequence[Type[InlineModelAdmin]]]:
+        return self.add_inlines
+
+    def get_add_readonly_fields(self, request: HttpRequest) -> Optional[Sequence[str]]:
+        return self.add_readonly_fields
+
+    def get_exclude(self, request, obj=None):
+        if obj is None:
+            add_exclude = self.get_add_exclude(request)
+            if add_exclude is not None:
+                return add_exclude
+        return super().get_exclude(request, obj)
+
+    def get_fields(self, request, obj=None):
+        if obj is None:
+            add_fields = self.get_add_fields(request)
+            if add_fields is not None:
+                return add_fields
+        return super().get_fields(request, obj)
+
+    def get_fieldsets(self, request, obj=None):
+        if obj is None:
+            add_fieldsets = self.get_add_fieldsets(request)
+            if add_fieldsets is not None:
+                return add_fieldsets
+        return super().get_fieldsets(request, obj)
+
+    def get_form(self, request, obj=None, change=False, **kwargs):
+        defaults = {}
+        if self.add_form is not None and not change:
+            defaults['form'] = self.add_form
+        defaults.update(kwargs)
+        return super().get_form(request, obj, change=change, **defaults)
+
+    def get_inlines(self, request, obj):
+        if obj is None:
+            add_inlines = self.get_add_inlines(request)
+            if add_inlines is not None:
+                return add_inlines
+        return super().get_inlines(request, obj)
+
+    def get_readonly_fields(self, request, obj=None):
+        if obj is None:
+            add_readonly_fields = self.get_add_readonly_fields(request)
+            if add_readonly_fields is not None:
+                return add_readonly_fields
+        return super().get_readonly_fields(request, obj)
