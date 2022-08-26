@@ -6,7 +6,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -17,7 +17,6 @@ from django.core.exceptions import ViewDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
-from django.http import HttpRequest
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.translation import ngettext
@@ -117,10 +116,12 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             raise ex
 
 
-def get_client_ip(request: HttpRequest) -> Optional[str]:
+def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.
+
+    For use with HttpRequest, send `request.META`.
     """
     meta_keys = (
         'HTTP_X_FORWARDED_FOR',
@@ -136,8 +137,8 @@ def get_client_ip(request: HttpRequest) -> Optional[str]:
     )
     value = None
     for key in meta_keys:
-        if request.META.get(key):
-            value = request.META[key].split(':')[0]
+        if meta_dict.get(key):
+            value = meta_dict[key].split(':')[0]
             if value:
                 break
     return value
