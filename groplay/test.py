@@ -3,7 +3,7 @@ Note: This module does not contain tests, hence its name is 'test' and not
 'tests'. It's for extending TestCase.
 """
 import json
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from django.db.models import Model
 from django.http.response import HttpResponse
@@ -53,7 +53,7 @@ class ExtendedTestCase(TestCase):
         self,
         response: HttpResponse,
         data: Any,
-        status_codes: List[int] = [200, 201]
+        status_codes: list[int] = [200, 201]
     ):
         """
         Assert response has any of `status_codes` and has a JSON body that

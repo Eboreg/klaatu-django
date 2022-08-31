@@ -1,7 +1,7 @@
 import io
 import logging
 import pickle
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 from PIL import Image
 
@@ -67,7 +67,7 @@ class ResizeImageFieldFile(ImageFieldFile):
         self.max_height, self.max_width = field.max_height, field.max_width
         super().__init__(instance, field, name)
 
-    def get_target_size(self, image: Image.Image) -> Tuple[int, int]:
+    def get_target_size(self, image: Image.Image) -> tuple[int, int]:
         width_divider = image.width / (self.max_width or image.width)
         height_divider = image.height / (self.max_height or image.height)
         divider = max([width_divider, height_divider])

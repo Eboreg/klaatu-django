@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, Optional, Union
 
 from rest_framework import serializers
 from rest_framework.compat import uritemplate
@@ -127,7 +127,7 @@ class BaseSchemaMixin:
             return getattr(self.view, 'action', None)
         return None
 
-    def get_extra_responses(self, path, method) -> List[ExtraResponse]:
+    def get_extra_responses(self, path, method) -> list[ExtraResponse]:
         responses = []
 
         if method in ('POST', 'PUT', 'PATCH'):

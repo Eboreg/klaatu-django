@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 from os.path import basename, splitext
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 from urllib.parse import urljoin
 
 from django import template
@@ -137,7 +137,7 @@ def modal(
     if not modal_id:
         modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
 
-    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
+    render_context: dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
 
     render_context["modal"] = {
         "required_params": required_params.split(" ") if required_params else [],
@@ -319,7 +319,7 @@ def add_str(value, arg) -> str:
 
 
 @register.filter
-def emphasize(text: str, words: Union[str, List[str]]):
+def emphasize(text: str, words: Union[str, list[str]]):
     """
     Make all instances of `words` in `text` <strong>bold</strong>.
     Case insensitive.

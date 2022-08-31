@@ -1,7 +1,7 @@
 import operator
 from enum import Enum, auto
 from pathlib import Path
-from typing import Collection, List, Tuple, Union
+from typing import Collection, Union
 
 from django.core.files.storage import FileSystemStorage as BaseFileSystemStorage
 
@@ -14,11 +14,11 @@ class SortKey(Enum):
     MTIME = auto()
 
 
-SortKeyWithOrder = Tuple[SortKey, bool]
+SortKeyWithOrder = tuple[SortKey, bool]
 SortKeyArg = Collection[Union[SortKey, SortKeyWithOrder]]
 
 
-def normalize_sort_keys(keys: SortKeyArg) -> List[SortKeyWithOrder]:
+def normalize_sort_keys(keys: SortKeyArg) -> list[SortKeyWithOrder]:
     ret = []
     for key in keys:
         if isinstance(key, SortKey):
@@ -29,7 +29,7 @@ def normalize_sort_keys(keys: SortKeyArg) -> List[SortKeyWithOrder]:
 
 
 class FileSystemStorage(BaseFileSystemStorage):
-    def sort_by(self, files: Collection[Path], keys: SortKeyArg) -> List[Path]:
+    def sort_by(self, files: Collection[Path], keys: SortKeyArg) -> list[Path]:
         nkeys = normalize_sort_keys(keys)
         reverse_all = False
 
@@ -37,9 +37,9 @@ class FileSystemStorage(BaseFileSystemStorage):
             if key == SortKey.NAME:
                 reverse_all = reverse
 
-        def sort_value(p: Path) -> List[Union[str, int, float]]:
+        def sort_value(p: Path) -> list[Union[str, int, float]]:
             stat = p.stat()
-            result: List[Union[str, int, float]] = []
+            result: list[Union[str, int, float]] = []
             for (key, reverse) in nkeys:
                 reverse = operator.xor(reverse, reverse_all)
                 multiplier = -1 if reverse else 1
@@ -60,7 +60,7 @@ class FileSystemStorage(BaseFileSystemStorage):
 
         return sorted(files, key=sort_value, reverse=reverse_all)
 
-    def recurse(self, path: Union[Path, str], sort: SortKeyArg = []) -> List[Path]:
+    def recurse(self, path: Union[Path, str], sort: SortKeyArg = []) -> list[Path]:
         """
         Recursively gets Path objects for files in `path`, ordered by `sort`.
         """
@@ -74,7 +74,7 @@ class FileSystemStorage(BaseFileSystemStorage):
                 files.append(entry)
         return self.sort_by(files, sort)
 
-    def list_recursive(self, path="", sort: SortKeyArg = []) -> List[str]:
+    def list_recursive(self, path="", sort: SortKeyArg = []) -> list[str]:
         """Recursively lists files in `path`, ordered by `sort`."""
         full_path = self.path(path)
         return [str(p)[len(full_path):].strip("/") for p in self.recurse(full_path, sort)]
