@@ -8,7 +8,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -118,7 +118,7 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             raise ex
 
 
-def get_client_ip(meta_dict: dict[str, Any]) -> Optional[str]:
+def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.

@@ -1,4 +1,4 @@
-from typing import Any, Callable, Mapping, Optional, Type
+from typing import Any, Callable, Dict, List, Mapping, Optional, Type
 
 from django.conf import settings
 from django.contrib import messages
@@ -69,10 +69,10 @@ class MultipleFormsMixin(FormMixin):
         # Otherwise FormMixin.get_form() will mess with us
         return None
 
-    def get_initial_for(self, key: str) -> dict[str, Any]:
+    def get_initial_for(self, key: str) -> Dict[str, Any]:
         return {}
 
-    def get_form_kwargs_for(self, key: str) -> dict[str, Any]:
+    def get_form_kwargs_for(self, key: str) -> Dict[str, Any]:
         kwargs = {
             "initial": {
                 **self.get_initial().get(key, {}),
@@ -87,14 +87,14 @@ class MultipleFormsMixin(FormMixin):
             )
         return kwargs
 
-    def get_forms(self, form_classes: Mapping[str, Type[Form]]) -> dict[str, Form]:
+    def get_forms(self, form_classes: Mapping[str, Type[Form]]) -> Dict[str, Form]:
         return {
             key: klass(**self.get_form_kwargs_for(key))
             for key, klass in form_classes.items()
         }
 
-    def get_form_errors(self, forms: dict[str, Form]) -> dict[str, list[str]]:
-        errors: dict[str, list[str]] = {}
+    def get_form_errors(self, forms: Dict[str, Form]) -> Dict[str, List[str]]:
+        errors: Dict[str, List[str]] = {}
         for prefix, form in forms.items():
             for key, value in form.errors.items():
                 if key == "__all__":
@@ -105,7 +105,7 @@ class MultipleFormsMixin(FormMixin):
                     errors[f"{prefix}-{key}"] = value
         return errors
 
-    def clean_forms(self, forms: dict[str, Form]) -> bool:
+    def clean_forms(self, forms: Dict[str, Form]) -> bool:
         # TODO: Maybe make it more consistent with Django's clean*() methods
         # (don't return anything but update self.errors instead)
         return all([form.is_valid() for form in forms.values()])
