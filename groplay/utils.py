@@ -1,4 +1,6 @@
 import copy
+import functools
+import os
 import re
 import time
 from datetime import date
@@ -6,7 +8,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -116,7 +118,7 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             raise ex
 
 
-def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
+def get_client_ip(meta_dict: dict[str, Any]) -> Optional[str]:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.
@@ -470,3 +472,50 @@ def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
 
     print(f"Mean:   {mean(measurements)}")
     print(f"Median: {median(measurements)}")
+
+
+class LockException(Exception):
+    ...
+
+
+def lock(lockfile: str):
+    """Primitive mechanism to avoid concurrent execution of a function."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if os.path.exists(lockfile):
+                raise LockException(f"Could not acquire lockfile: {lockfile}")
+
+            else:
+                with open(lockfile, "w") as f:
+                    f.write("LOCK")
+
+                result = func(*args, **kwargs)
+
+                # Multiple attempts just to be super sure I guess?
+                remote_attempts = 0
+                while os.path.exists(lockfile) and remote_attempts < 10:
+                    os.remove(lockfile)
+                    remote_attempts += 1
+
+                return result
+        return wrapper
+    return decorator
+
+
+class Lock:
+    """Does the same as `lock`, but as a context manager."""
+    def __init__(self, lockfile: str):
+        self.lockfile = lockfile
+
+    def __enter__(self):
+        if os.path.exists(self.lockfile):
+            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
+        with open(self.lockfile, "w") as f:
+            f.write("LOCKED")
+
+    def __exit__(self, *args, **kwargs):
+        remote_attempts = 0
+        while os.path.exists(self.lockfile) and remote_attempts < 10:
+            os.remove(self.lockfile)
+            remote_attempts += 1
