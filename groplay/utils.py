@@ -8,7 +8,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -417,7 +417,7 @@ def circulate(lst: Union[list, tuple], rounds: int) -> list:
     return lst
 
 
-def getitem_nullable(seq: Sequence[_T], idx: int, cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+def getitem_nullable(seq: Iterable[_T], idx: int, cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
     """
     If `seq` has an item at position `idx`, return that item. Otherwise return
     None. Similar to how QuerySet's first() & last() operate.
@@ -438,12 +438,12 @@ def getitem_nullable(seq: Sequence[_T], idx: int, cond: Optional[Callable[[_T], 
         if cond is not None:
             return [item for item in seq if cond(item)][idx]
         else:
-            return seq[idx]
+            return list(seq)[idx]
     except IndexError:
         return None
 
 
-def getitem0_nullable(seq: Sequence[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+def getitem0_nullable(seq: Iterable[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
     return getitem_nullable(seq, 0, cond)
 
 
