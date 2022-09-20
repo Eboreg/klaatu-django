@@ -297,6 +297,14 @@ def subtract(value, arg):
 
 
 @register.filter
+def modulo(value, arg):
+    try:
+        return int(value) % int(arg)
+    except Exception:
+        return None
+
+
+@register.filter
 def startswith(value: str, arg: str) -> bool:
     try:
         return value.startswith(arg)
