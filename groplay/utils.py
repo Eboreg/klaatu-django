@@ -110,6 +110,8 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             return str(o.pk)
         if isinstance(o, QuerySet):  # type: ignore
             return list(o)
+        if isinstance(o, bytes):
+            return "[Binary data]"
         try:
             return super().default(o)
         except TypeError as ex:

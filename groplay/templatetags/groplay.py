@@ -86,7 +86,71 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
         return super().string_for(then)
 
 
+class EmailSection(template.Node):
+    def __init__(self, nodelist: template.NodeList, **kwargs: template.base.FilterExpression):
+        self.nodelist = nodelist
+        self.kwargs = kwargs
+
+    def render(self, context: template.Context) -> str:
+        table_kwargs = {
+            "role": "presentation",
+            "class": "section",
+            "cellspacing": "0",
+            "cellpadding": "0",
+        }
+        table_args = ["%s=\"%s\"" % (k, v) for k, v in table_kwargs.items()]
+        td_args = []
+        for name, value in self.kwargs.items():
+            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))
+        return "<table %s><tr><td %s>%s</td></tr></table>" % (
+            " ".join(table_args),
+            " ".join(td_args),
+            self.nodelist.render(context)
+        )
+
+
 ### TAGS ##################################
+
+@register.tag(name="section")
+def email_section(parser: template.base.Parser, token: template.base.Token):
+    """
+    Injects the tag's contents into a <table> with one row and one cell,
+    roughly mimicking a <div>. This is because email clients are retarded and
+    can't handle normal HTML.
+
+    The <table> tag will have class="section"; it is up to the implementation
+    to provide such a class. The element is probably best suited for
+    graphically "top level" sections, and the class should therefore specify
+    "max-width: 600px" or whichever container width you go for. Any kwargs
+    will be used for attributes on the lone <td> tag.
+
+    Example:
+
+    {% section class="py-3" style="text-align: center" %}
+        <p>Hey ho!</p>
+    {% endsection %}
+
+    ... will result in:
+
+    <table class="section">
+        <tr>
+            <td class="py-3" style="text-align: center">
+                <p>Hey ho!</p>
+            </td>
+        </tr>
+    </table>
+    """
+    bits = token.split_contents()[1:]
+    kwargs = {}
+    for bit in bits:
+        match = template.base.kwarg_re.match(bit)
+        if match:
+            name, value = match.groups()
+            kwargs[name] = parser.compile_filter(value)
+    nodelist = parser.parse(("endsection",))
+    parser.delete_first_token()
+    return EmailSection(nodelist, **kwargs)
+
 
 @register.simple_tag
 def join_query_params(request: HttpRequest, **kwargs) -> str:
