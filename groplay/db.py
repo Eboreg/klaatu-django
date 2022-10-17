@@ -10,20 +10,34 @@ from django.db import models
 from django.db.models import BinaryField, Case, F, FloatField, IntegerField, Q, Value as V, When
 from django.db.models.expressions import Combinable, Expression
 from django.db.models.fields.files import ImageFieldFile
-from django.db.models.functions import Cast
+from django.db.models.functions import Cast, Round
 
 logger = logging.getLogger(__name__)
 
 
+def TrueIf(*args, **kwargs) -> Expression:
+    """Convenience method: 'if all the arguments are true, then true'."""
+    return Case(When(Q(*args, **kwargs), then=V(True)), default=V(False))
+
+
+def TrueIfAny(*args, **kwargs) -> Expression:
+    """If _any_ of the arguments is true, then true."""
+    conds = Q()
+    for arg in args:
+        conds |= Q(arg)
+    for key, value in kwargs.items():
+        conds |= Q(**{key: value})
+    return Case(When(conds, then=V(True)), default=V(False))
+
+
 def CorrectRound(field: Union[str, Combinable]) -> Expression:
-    """Correctly rounds a numeric field to int
+    """
+    Correctly rounds a numeric field to int.
 
     Formula: int(value + (int(value) % 2))
     So:
     CorrectRound(4.5) = int(4.5 + (4 % 2)) = int(4.5 + 0) = 4
     CorrectRound(3.5) = int(3.5 + (3 % 2)) = int(3.5 + 1) = 4
-
-    Only used by PercentRounded.
     """
     if isinstance(field, str):
         field = F(field)
@@ -38,12 +52,9 @@ def PercentRounded(part: str, whole: str) -> Expression:
     """
     Given two numeric SQL fields, return a percentage as integer.
     """
-    return Cast(
-        Case(
-            When(Q(**{whole: 0}), then=V(0)),
-            default=CorrectRound(Cast(part, FloatField()) / Cast(whole, FloatField()) * 100)
-        ),
-        IntegerField()
+    return Case(
+        When(Q(**{whole: 0}), then=V(0)),
+        default=Round(Cast(part, FloatField()) / F(whole) * 100, output_field=IntegerField())
     )
 
 

@@ -1,9 +1,14 @@
+import copy
+import functools
+import os
 import re
+import time
 from datetime import date
 from importlib import import_module
 from math import ceil, floor, log10
+from statistics import mean, median
 from types import ModuleType
-from typing import Any, Iterable, Iterator, Optional, SupportsFloat, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -14,10 +19,11 @@ from django.core.exceptions import ViewDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
-from django.http import HttpRequest
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.translation import ngettext
+
+_T = TypeVar("_T")
 
 
 def append_query_to_url(url: str, params: dict, conditional_params: Optional[dict] = None, safe: str = '') -> str:
@@ -104,6 +110,8 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             return str(o.pk)
         if isinstance(o, QuerySet):  # type: ignore
             return list(o)
+        if isinstance(o, bytes):
+            return "[Binary data]"
         try:
             return super().default(o)
         except TypeError as ex:
@@ -112,10 +120,12 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             raise ex
 
 
-def get_client_ip(request: HttpRequest) -> Optional[str]:
+def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.
+
+    For use with HttpRequest, send `request.META`.
     """
     meta_keys = (
         'HTTP_X_FORWARDED_FOR',
@@ -131,8 +141,8 @@ def get_client_ip(request: HttpRequest) -> Optional[str]:
     )
     value = None
     for key in meta_keys:
-        if request.META.get(key):
-            value = request.META[key].split(':')[0]
+        if meta_dict.get(key):
+            value = meta_dict[key].split(':')[0]
             if value:
                 break
     return value
@@ -407,3 +417,118 @@ def circulate(lst: Union[list, tuple], rounds: int) -> list:
             val = lst.pop(0)
             lst.append(val)
     return lst
+
+
+def getitem_nullable(seq: Iterable[_T], idx: int, cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+    """
+    If `seq` has an item at position `idx`, return that item. Otherwise return
+    None. Similar to how QuerySet's first() & last() operate.
+
+    With `cond` set, it first filters `seq` for items where this function
+    evaluates as True, then tries to get item `idx` from the resulting list.
+
+    Example:
+
+    seq = [23, 43, 12, 56, 75, 1]
+    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
+    # second_even == 56
+    seq = [1, 2, 3, 5, 7]
+    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
+    # second_even == None
+    """
+    try:
+        if cond is not None:
+            return [item for item in seq if cond(item)][idx]
+        else:
+            return list(seq)[idx]
+    except IndexError:
+        return None
+
+
+def getitem0_nullable(seq: Iterable[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+    return getitem_nullable(seq, 0, cond)
+
+
+def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
+    """Purely a testing function to be used in the CLI."""
+    last_percent = 0
+    measurements = []
+
+    for i in range(iterations):
+        start_time = time.time()
+        for queryset in querysets:
+            list(copy.deepcopy(queryset))
+        elapsed_time = time.time() - start_time
+        measurements.append(elapsed_time)
+        if quiet:
+            percent = int((i + 1) / iterations * 100)
+            if not percent % 10 and percent != last_percent:
+                last_percent = percent
+                output = f"{percent}%"
+                if percent == 100:
+                    print(output)
+                else:
+                    print(output, end=" ... ", flush=True)
+        else:
+            print(f"[{i + 1}/{iterations}: {elapsed_time}")
+
+    print(f"Mean:   {mean(measurements)}")
+    print(f"Median: {median(measurements)}")
+
+
+class LockException(Exception):
+    ...
+
+
+def lock(lockfile: str):
+    """Primitive mechanism to avoid concurrent execution of a function."""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            if os.path.exists(lockfile):
+                raise LockException(f"Could not acquire lockfile: {lockfile}")
+
+            else:
+                with open(lockfile, "w") as f:
+                    f.write("LOCK")
+
+                result = func(*args, **kwargs)
+
+                # Multiple attempts just to be super sure I guess?
+                remote_attempts = 0
+                while os.path.exists(lockfile) and remote_attempts < 10:
+                    os.remove(lockfile)
+                    remote_attempts += 1
+
+                return result
+        return wrapper
+    return decorator
+
+
+class Lock:
+    """Does the same as `lock`, but as a context manager."""
+    def __init__(self, lockfile: str):
+        self.lockfile = lockfile
+
+    def __enter__(self):
+        if os.path.exists(self.lockfile):
+            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
+        with open(self.lockfile, "w") as f:
+            f.write("LOCKED")
+
+    def __exit__(self, *args, **kwargs):
+        remote_attempts = 0
+        while os.path.exists(self.lockfile) and remote_attempts < 10:
+            os.remove(self.lockfile)
+            remote_attempts += 1
+
+
+def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
+    """
+    Tries to return the index of the first item in `sequence` for which the
+    function `pred` returns True. If no such item is found, return -1.
+    """
+    try:
+        return sequence.index(next(filter(pred, sequence)))
+    except StopIteration:
+        return -1

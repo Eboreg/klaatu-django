@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime
 from os.path import basename, splitext
-from typing import Any, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
 
 from django import template
@@ -86,7 +86,71 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
         return super().string_for(then)
 
 
+class EmailSection(template.Node):
+    def __init__(self, nodelist: template.NodeList, **kwargs: template.base.FilterExpression):
+        self.nodelist = nodelist
+        self.kwargs = kwargs
+
+    def render(self, context: template.Context) -> str:
+        table_kwargs = {
+            "role": "presentation",
+            "class": "section",
+            "cellspacing": "0",
+            "cellpadding": "0",
+        }
+        table_args = ["%s=\"%s\"" % (k, v) for k, v in table_kwargs.items()]
+        td_args = []
+        for name, value in self.kwargs.items():
+            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))
+        return "<table %s><tr><td %s>%s</td></tr></table>" % (
+            " ".join(table_args),
+            " ".join(td_args),
+            self.nodelist.render(context)
+        )
+
+
 ### TAGS ##################################
+
+@register.tag(name="section")
+def email_section(parser: template.base.Parser, token: template.base.Token):
+    """
+    Injects the tag's contents into a <table> with one row and one cell,
+    roughly mimicking a <div>. This is because email clients are retarded and
+    can't handle normal HTML.
+
+    The <table> tag will have class="section"; it is up to the implementation
+    to provide such a class. The element is probably best suited for
+    graphically "top level" sections, and the class should therefore specify
+    "max-width: 600px" or whichever container width you go for. Any kwargs
+    will be used for attributes on the lone <td> tag.
+
+    Example:
+
+    {% section class="py-3" style="text-align: center" %}
+        <p>Hey ho!</p>
+    {% endsection %}
+
+    ... will result in:
+
+    <table class="section">
+        <tr>
+            <td class="py-3" style="text-align: center">
+                <p>Hey ho!</p>
+            </td>
+        </tr>
+    </table>
+    """
+    bits = token.split_contents()[1:]
+    kwargs = {}
+    for bit in bits:
+        match = template.base.kwarg_re.match(bit)
+        if match:
+            name, value = match.groups()
+            kwargs[name] = parser.compile_filter(value)
+    nodelist = parser.parse(("endsection",))
+    parser.delete_first_token()
+    return EmailSection(nodelist, **kwargs)
+
 
 @register.simple_tag
 def join_query_params(request: HttpRequest, **kwargs) -> str:
@@ -137,7 +201,9 @@ def modal(
     if not modal_id:
         modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
 
-    context["modal"] = {
+    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
+
+    render_context["modal"] = {
         "required_params": required_params.split(" ") if required_params else [],
         "optional_params": optional_params.split(" ") if optional_params else [],
         "id": modal_id,
@@ -147,8 +213,8 @@ def modal(
         "scrollable": scrollable,
         "center": center,
     }
-    context.update(kwargs)
-    return mark_safe(render_to_string(template_name, context.flatten()))
+    render_context.update(kwargs)
+    return mark_safe(render_to_string(template_name, render_context))
 
 
 @register.inclusion_tag("groplay/modals/dynamic.html")
@@ -199,23 +265,21 @@ def dynamic_modal(
 
 
 @register.inclusion_tag("groplay/preloader.html")
-def preloader(id: Optional[str] = None, fixed=False, show=False, small=False):
+def preloader(id: Optional[str] = None, fixed=False, show=False, large=False):
     """
     Inserts a .preloader element, which will then be shown and hidden by JS.
     Extend groplay/preloader.html to customize it.
 
     @param fixed Preloader should have position: fixed (default: absolute)
     @param show Show preloader on load
-    @param small Shrink font & image sizes to 75%
-    `size` should be a percentage string, which probably should not be less
-    than "75%".
+    @param large If False, shrink font & image sizes to 75%; else 100%
     """
     return {
         "preloader": {
             "id": id,
             "fixed": fixed,
             "show": show,
-            "small": small,
+            "large": large,
         }
     }
 
@@ -297,6 +361,14 @@ def subtract(value, arg):
 
 
 @register.filter
+def modulo(value, arg):
+    try:
+        return int(value) % int(arg)
+    except Exception:
+        return None
+
+
+@register.filter
 def startswith(value: str, arg: str) -> bool:
     try:
         return value.startswith(arg)
@@ -338,3 +410,34 @@ def emphasize(text: str, words: Union[str, List[str]]):
     return mark_safe(
         re.sub(rf"(?<!\w=)({pattern})(?!\w)", r"<strong>\1</strong>", text, flags=re.IGNORECASE)
     )
+
+
+@register.filter(name="abs")
+def abs_value(value) -> Optional[int]:
+    """
+    Simply returns the absolute value of `value`, or None if it cannot be
+    coerced to integer.
+    """
+    try:
+        return abs(int(value))
+    except TypeError:
+        return None
+
+
+@register.filter
+def delta_days(value) -> Optional[int]:
+    """
+    Return number of days between now and `value`. Positive = future.
+    `value` may be a date or datetime object, or a string which can be parsed
+    with datetime.fromisoformat().
+    """
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        return (value - timezone.localdate()).days
+    return None
