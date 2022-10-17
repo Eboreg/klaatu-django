@@ -8,7 +8,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -521,3 +521,14 @@ class Lock:
         while os.path.exists(self.lockfile) and remote_attempts < 10:
             os.remove(self.lockfile)
             remote_attempts += 1
+
+
+def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
+    """
+    Tries to return the index of the first item in `sequence` for which the
+    function `pred` returns True. If no such item is found, return -1.
+    """
+    try:
+        return sequence.index(next(filter(pred, sequence)))
+    except StopIteration:
+        return -1

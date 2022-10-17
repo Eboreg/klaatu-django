@@ -410,3 +410,34 @@ def emphasize(text: str, words: Union[str, List[str]]):
     return mark_safe(
         re.sub(rf"(?<!\w=)({pattern})(?!\w)", r"<strong>\1</strong>", text, flags=re.IGNORECASE)
     )
+
+
+@register.filter(name="abs")
+def abs_value(value) -> Optional[int]:
+    """
+    Simply returns the absolute value of `value`, or None if it cannot be
+    coerced to integer.
+    """
+    try:
+        return abs(int(value))
+    except TypeError:
+        return None
+
+
+@register.filter
+def delta_days(value) -> Optional[int]:
+    """
+    Return number of days between now and `value`. Positive = future.
+    `value` may be a date or datetime object, or a string which can be parsed
+    with datetime.fromisoformat().
+    """
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        return (value - timezone.localdate()).days
+    return None
