@@ -1,6 +1,7 @@
 {% load static i18n %}
 
-<div class="preloader {% if preloader.fixed %}fixed{% endif %} {% if preloader.show %}show{% endif %} {% if not preloader.large %}small{% endif %}"
+<div class="preloader {% if preloader.framed %}framed{% endif %} {% if preloader.backdrop %}backdrop{% endif %} {% if preloader.show %}show{% endif %} {% if not preloader.large %}small{% endif %}"
+  style="position: {{ preloader.position }}"
   {% if preloader.id %} id="{{ preloader.id }}"{% endif %}>
   <div class="contents">
     {% block contents %}
