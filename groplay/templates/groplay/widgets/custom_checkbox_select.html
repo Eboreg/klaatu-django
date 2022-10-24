@@ -1,0 +1,14 @@
+<div {% if widget.attrs.id %}id="{{ widget.attrs.id }}"{% endif %} {% if widget.field_wrapper_class %}class="{{ widget.field_wrapper_class }}"{% endif %}>
+  {% for group, options, index in widget.optgroups %}
+  {% for option in options %}
+  <div {% if widget.option_wrapper_class %}class="{{ widget.option_wrapper_class }}"{% endif %}>
+    <div class="custom-control custom-checkbox">
+      {% include "django/forms/widgets/input.html" with widget=option %}
+      {% if option.wrap_label %}
+      <label {% if option.attrs.id %}for="{{ option.attrs.id }}"{% endif %} class="custom-control-label">{{ option.label }}</label>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endfor %}
+</div>

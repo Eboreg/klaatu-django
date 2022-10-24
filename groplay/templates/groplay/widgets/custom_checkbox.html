@@ -1,0 +1,6 @@
+<div class="custom-control custom-checkbox form-group">
+  {% include "django/forms/widgets/input.html" %}
+  {% if widget.label %}
+  <label {% if widget.attrs.id %}for="{{ widget.attrs.id }}"{% endif %} class="custom-control-label">{{ widget.label }}</label>
+  {% endif %}
+</div>
