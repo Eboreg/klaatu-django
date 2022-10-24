@@ -291,7 +291,7 @@ def preloader(
             "id": id,
             "show": show,
             "large": large,
-            "positions": position,
+            "position": position,
             "framed": framed,
             "backdrop": backdrop,
             **kwargs,
