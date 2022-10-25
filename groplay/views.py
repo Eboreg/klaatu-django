@@ -1,15 +1,14 @@
-from typing import Any, Callable, Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, Mapping, Optional, Type
 
 from django.conf import settings
 from django.contrib import messages
 from django.forms import Form
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
-from django.urls import reverse
 from django.utils.translation import check_for_language
-from django.views.generic.base import ContextMixin, View
-from django.views.generic.detail import SingleObjectMixin, SingleObjectTemplateResponseMixin
-from django.views.generic.edit import FormMixin, FormView, ModelFormMixin, ProcessFormView
+from django.views.generic.base import View
+from django.views.generic.detail import DetailView, SingleObjectMixin
+from django.views.generic.edit import FormMixin, FormView, UpdateView
 
 
 class LanguageMixin:
@@ -111,38 +110,6 @@ class MultipleFormsMixin(FormMixin):
         return all([form.is_valid() for form in forms.values()])
 
 
-class RedirectIfNotFoundMixin(SingleObjectMixin):
-    """
-    When detail view fails to get object, add a warning via messages and
-    redirect to HTTP_REFERER (if exists) or `redirect_url` instead of Http404.
-
-    Does not handle the actual redirect; for that, RedirectDetailView may be
-    used, or the implementing class needs to do the check itself in its
-    get(), post() or whichever method is applicable.
-    """
-    redirect_message: Optional[str] = None
-    redirect_url: str
-    request: HttpRequest
-
-    def get_object(self, queryset=None):
-        # If you override this in your implementing class and don't call
-        # super().get_object(), make sure to add the warning
-        try:
-            return super().get_object(queryset)
-        except Http404 as ex:
-            messages.warning(self.request, self.redirect_message or str(ex))
-            raise ex
-
-    def get_redirect_url(self) -> str:
-        if hasattr(self, "redirect_url"):
-            return self.redirect_url
-        if "HTTP_REFERER" in self.request.META:
-            # Ugly hack so we don't redirect back to /login/?next=... or
-            # whatever, which in turn would redirect us back here, and so on
-            return self.request.META["HTTP_REFERER"].split("?")[0]
-        return reverse("index")
-
-
 class MultipleFormsView(MultipleFormsMixin, FormView):
     """
     Inspired by extra_views and https://gist.github.com/michelts/1029336
@@ -167,41 +134,48 @@ class MultipleFormsView(MultipleFormsMixin, FormView):
         return self.render_to_response(self.get_context_data(forms=forms))
 
 
-class BaseRedirectIfNotFoundDetailView(RedirectIfNotFoundMixin, ContextMixin, View):
-    # Analogous to Django's BaseDetailView.
-    render_to_response: Callable
+class RedirectIfNotFoundMixin(SingleObjectMixin):
+    """
+    Convenience mixin for redirecting to a chosen URL when an object is not
+    found, with an optional error message.
+    """
+    fallback_to_referer = True
+    redirect_message: Optional[str] = None
+    redirect_url: Optional[str] = None
+    request: HttpRequest
 
-    def get(self, request: HttpRequest, *args, **kwargs):
+    def get_redirect_message(self) -> Optional[str]:
+        return getattr(self, "redirect_message", None)
+
+    def get_redirect_url(self) -> str:
+        if self.redirect_url:
+            return self.redirect_url
+        if self.fallback_to_referer and "HTTP_REFERER" in self.request.META:
+            # Ugly hack so we don't redirect back to /login/?next=... or
+            # whatever, which in turn would redirect us back here, and so on
+            return self.request.META["HTTP_REFERER"].split("?")[0]
+        # Last resort:
+        raise Http404
+
+    def redirect_with_message(self, exception: Optional[Http404] = None):
+        message = self.get_redirect_message()
+        if not message:
+            message = str(exception)
+        messages.error(self.request, message)
+        return redirect(self.get_redirect_url())
+
+
+class BaseRedirectIfNotFoundView(RedirectIfNotFoundMixin, View):
+    def dispatch(self, request, *args, **kwargs):
         try:
-            self.object = self.get_object()
-            context = self.get_context_data(object=self.object)
-            return self.render_to_response(context)
-        except Http404:
-            return redirect(self.get_redirect_url())
+            return super().dispatch(request, *args, **kwargs)
+        except Http404 as e:
+            return self.redirect_with_message(e)
 
 
-class BaseRedirectIfNotFoundUpdateView(RedirectIfNotFoundMixin, ModelFormMixin, ProcessFormView):
-    # Analogous to Django's BaseUpdateView.
-    def get(self, request: HttpRequest, *args, **kwargs):
-        try:
-            self.object = self.get_object()
-            return super().get(request, *args, **kwargs)
-        except Http404:
-            return redirect(self.get_redirect_url())
-
-    def post(self, request: HttpRequest, *args, **kwargs):
-        try:
-            self.object = self.get_object()
-            return super().post(request, *args, **kwargs)
-        except Http404:
-            return redirect(self.get_redirect_url())
-
-
-class RedirectDetailView(SingleObjectTemplateResponseMixin, BaseRedirectIfNotFoundDetailView):
-    # Analogous to Django's DetailView.
+class RedirectDetailView(BaseRedirectIfNotFoundView, DetailView):
     pass
 
 
-class RedirectUpdateView(SingleObjectTemplateResponseMixin, BaseRedirectIfNotFoundUpdateView):
-    # Analogous to Django's UpdateView.
-    template_name_suffix = "_form"
+class RedirectUpdateView(BaseRedirectIfNotFoundView, UpdateView):
+    pass
