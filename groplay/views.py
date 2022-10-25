@@ -159,9 +159,10 @@ class RedirectIfNotFoundMixin(SingleObjectMixin):
 
     def redirect_with_message(self, exception: Optional[Http404] = None):
         message = self.get_redirect_message()
-        if not message:
+        if not message and exception is not None:
             message = str(exception)
-        messages.error(self.request, message)
+        if message:
+            messages.error(self.request, message)
         return redirect(self.get_redirect_url())
 
 
