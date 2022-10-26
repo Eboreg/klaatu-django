@@ -11,21 +11,26 @@ class CustomCheckboxInput(forms.CheckboxInput):
     For optimal use, the label text should be set on this widget instead of on
     its field.
     """
+    field_wrapper_class = ""
     template_name = "groplay/widgets/custom_checkbox.html"
     label: Optional[str] = None
 
-    def __init__(self, attrs=None, check_test=None, label=None):
+    def __init__(self, attrs=None, check_test=None, label=None, field_wrapper_class=""):
         attrs = attrs or {}
         if "class" in attrs:
             attrs["class"] += " custom-control-input"
         else:
             attrs["class"] = "custom-control-input"
         super().__init__(attrs, check_test)
+        self.field_wrapper_class = field_wrapper_class
         self.label = label
 
     def get_context(self, name, value, attrs):
         context = super().get_context(name, value, attrs)
-        context["widget"].update(label=self.label)
+        context["widget"].update(
+            field_wrapper_class=self.field_wrapper_class,
+            label=self.label,
+        )
         return context
 
 
