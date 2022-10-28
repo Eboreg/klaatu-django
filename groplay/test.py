@@ -5,6 +5,7 @@ Note: This module does not contain tests, hence its name is 'test' and not
 import json
 from typing import Any, List, Optional
 
+from django.core import mail
 from django.db.models import Model
 from django.http.response import HttpResponse
 from django.test import TestCase
@@ -68,3 +69,17 @@ class ExtendedTestCase(TestCase):
             self.assertListContains(content, data)
         else:
             self.assertEqual(content, data)
+
+    def assertHasReceivedEmail(self, email: str, count: Optional[int] = None):
+        """
+        Assert that `count` number of emails have been sent to `email`, or
+        that _any_ email has been sent to `email` in case `count` is None.
+        """
+        messages = [m for m in mail.outbox if email in m.to]
+        if count is not None:
+            self.assertEqual(len(messages), count)
+        else:
+            self.assertGreaterEqual(len(messages), 1)
+
+    def assertHasNotReceivedEmail(self, email: str):
+        self.assertHasReceivedEmail(email, 0)
