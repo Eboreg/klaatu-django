@@ -8,7 +8,7 @@ from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, Iterator, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, SupportsFloat, TypeVar, Union
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -532,3 +532,18 @@ def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
         return sequence.index(next(filter(pred, sequence)))
     except StopIteration:
         return -1
+
+
+def group_by(sequence: Sequence[_T], pred: Callable[[_T], Any]) -> Dict[Any, List[_T]]:
+    """
+    Groups `sequence` by the result of `pred` on each item. Returns dict with
+    those results as keys and sublists of `sequence` as values.
+    """
+    result = {}
+    for item in sequence:
+        key = pred(item)
+        if key not in result:
+            result[key] = [item]
+        else:
+            result[key].append(item)
+    return result
