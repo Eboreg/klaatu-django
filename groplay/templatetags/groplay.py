@@ -346,6 +346,19 @@ def timedelta_rounded_short(value: Any) -> str:
 
 
 @register.filter
+def timedelta_time(value: Any) -> str:
+    """Returns value in HH:MM:SS format."""
+    if not isinstance(value, (timezone.timedelta, int)):
+        return "-"
+    if isinstance(value, int):
+        value = timezone.timedelta(seconds=value)
+    hours = int(value.total_seconds() / 3600)
+    minutes = int(value.total_seconds() % 3600 / 60)
+    seconds = int(value.total_seconds() % 60)
+    return "%02d:%02d:%02d" % (hours, minutes, seconds)
+
+
+@register.filter
 def in_language(value: str, language_code: str) -> str:
     with override(language_code):
         return str(value)
