@@ -547,3 +547,13 @@ def group_by(sequence: Sequence[_T], pred: Callable[[_T], Any]) -> Dict[Any, Lis
         else:
             result[key].append(item)
     return result
+
+
+def is_truthy(value: Any) -> bool:
+    """
+    Basically does `bool(value)`, except it also returns False for string
+    values "false", "no", and "0" (case insensitive).
+    """
+    if isinstance(value, str) and value.lower() in ("false", "no", "0"):
+        return False
+    return bool(value)
