@@ -469,3 +469,17 @@ def delta_days(value) -> Optional[int]:
     if isinstance(value, date):
         return (value - timezone.localdate()).days
     return None
+
+
+@register.filter
+def admin_boolean_icon(value: bool) -> str:
+    """
+    _boolean_icon() exists but is probably considered "internal", hence the
+    exception checking.
+    """
+    try:
+        from django.contrib.admin.templatetags.admin_list import _boolean_icon  # type: ignore
+    except ImportError:
+        return str(value)
+
+    return _boolean_icon(value)
