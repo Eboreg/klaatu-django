@@ -15,8 +15,9 @@ from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
 
 from django.conf import settings
-from django.core.exceptions import ViewDoesNotExist
+from django.core.exceptions import ValidationError, ViewDoesNotExist
 from django.core.serializers.json import DjangoJSONEncoder
+from django.core.validators import validate_email
 from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
 from django.urls import URLPattern, URLResolver
@@ -557,3 +558,11 @@ def is_truthy(value: Any) -> bool:
     if isinstance(value, str) and value.lower() in ("false", "no", "0"):
         return False
     return bool(value)
+
+
+def is_valid_email(value: Any) -> bool:
+    try:
+        validate_email(value)
+    except (ValidationError, TypeError):
+        return False
+    return True

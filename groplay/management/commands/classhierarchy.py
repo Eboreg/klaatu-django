@@ -1,4 +1,5 @@
 from typing import Dict, List
+
 from django.core.management.base import BaseCommand, CommandParser
 from django.utils.module_loading import import_string
 
