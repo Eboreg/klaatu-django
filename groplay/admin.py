@@ -140,6 +140,7 @@ class RelatedLinkMixin:
         self,
         obj: Optional[Model],
         related_name: str,
+        proxy_model: Optional[Type[Model]] = None,
         verbose_name: Optional[str] = None,
         verbose_name_plural: Optional[str] = None
     ):
@@ -148,6 +149,9 @@ class RelatedLinkMixin:
         (reverse foreign key relationship) field on `obj`. If the related
         model is registered with the AdminSite, return a link to that model's
         changelist, filtered for those instances that are related to `obj`.
+
+        Set `proxy_model` if the link should go to the admin for a proxy
+        model, rather than the concrete model indicated by the relation.
 
         Link text will be "[number of instances] [verbose_name[_plural]]",
         where `verbose_name[_plural]` is either set in the method arguments or
@@ -169,24 +173,29 @@ class RelatedLinkMixin:
 
         related_field = obj._meta.get_field(related_name)
 
-        if isinstance(related_field, ForeignObjectRel) and self.admin_site.is_registered(related_field.related_model):
-            related_model = related_field.related_model
-            opts = related_model._meta
-            verbose_name = verbose_name or related_model._meta.verbose_name
-            verbose_name_plural = verbose_name_plural or related_model._meta.verbose_name_plural
-            obj_count = getattr(obj, related_name).count()
+        if isinstance(related_field, ForeignObjectRel):
+            if proxy_model and issubclass(proxy_model, related_field.related_model):
+                related_model = proxy_model
+            else:
+                related_model = related_field.related_model
 
-            return format_html(
-                '<a href="{}?{}__exact={}">{} {}</a>',
-                reverse(
-                    "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
-                    current_app=self.admin_site.name
-                ),
-                related_field.field.get_attname(),
-                getattr(obj, obj._meta.pk.attname),
-                obj_count,
-                verbose_name if obj_count == 1 else verbose_name_plural
-            )
+            if self.admin_site.is_registered(related_model):
+                opts = related_model._meta
+                verbose_name = verbose_name or related_model._meta.verbose_name
+                verbose_name_plural = verbose_name_plural or related_model._meta.verbose_name_plural
+                obj_count = getattr(obj, related_name).count()
+
+                return format_html(
+                    '<a href="{}?{}__exact={}">{} {}</a>',
+                    reverse(
+                        "admin:%s_%s_changelist" % (opts.app_label, opts.model_name),
+                        current_app=self.admin_site.name
+                    ),
+                    related_field.field.get_attname(),
+                    getattr(obj, obj._meta.pk.attname),
+                    obj_count,
+                    verbose_name if obj_count == 1 else verbose_name_plural
+                )
 
 
 class ExtendedModelAdmin(RelatedLinkMixin, admin.ModelAdmin):

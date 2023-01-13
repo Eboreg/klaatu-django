@@ -566,3 +566,10 @@ def is_valid_email(value: Any) -> bool:
     except (ValidationError, TypeError):
         return False
     return True
+
+
+def to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
