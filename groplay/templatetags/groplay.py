@@ -272,6 +272,7 @@ def preloader(
     large=False,
     framed=True,
     backdrop=True,
+    style="",
     **kwargs
 ):
     """
@@ -294,6 +295,7 @@ def preloader(
             "position": position,
             "framed": framed,
             "backdrop": backdrop,
+            "style": style,
             **kwargs,
         }
     }
