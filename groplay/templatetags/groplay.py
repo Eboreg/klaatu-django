@@ -17,7 +17,7 @@ from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
-from groplay.utils import relativedelta_rounded, timedelta_formatter
+from groplay.utils import capitalize, relativedelta_rounded, timedelta_formatter
 
 register = template.Library()
 
@@ -485,3 +485,9 @@ def admin_boolean_icon(value: bool) -> str:
         return str(value)
 
     return _boolean_icon(value)
+
+
+@register.filter(name="capitalize")
+@stringfilter
+def capitalize_string(value: str) -> str:
+    return capitalize(value)

@@ -22,7 +22,7 @@ from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
-from django.utils.translation import ngettext
+from django.utils.translation import get_language, ngettext
 
 _T = TypeVar("_T")
 
@@ -573,3 +573,29 @@ def to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         return int(value)
     except (ValueError, TypeError):
         return default
+
+
+def capitalize(string: Optional[str], language: Optional[str] = None) -> str:
+    """
+    Language-dependent word capitalization. For English, it capitalizes every
+    word except some hard-coded exceptions (the first and last word are always
+    capitalized, however). For all other languages, only the first word.
+
+    Side effect: Will replace multiple consecutive spaces with only one space.
+
+    @param language Optional, will use current session's language if not set.
+    """
+    language = language or get_language()
+
+    if string is None:
+        return ""
+
+    if language == "en":
+        non_capped = ['a', 'an', 'and', 'but', 'for', 'from', 'if', 'nor', 'of', 'or', 'so', 'the']
+        words = string.split(" ")
+        for idx, word in enumerate(words):
+            if word and (idx == 0 or idx == len(words) - 1 or re.sub(r"\W", "", word).lower() not in non_capped):
+                words[idx] = word[0].upper() + word[1:]
+        return " ".join(words)
+    else:
+        return string.capitalize()
