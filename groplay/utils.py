@@ -105,7 +105,12 @@ def soupify(value: Union[str, bytes]) -> BeautifulSoup:
 
 
 class ObjectJSONEncoder(DjangoJSONEncoder):
-    """Somewhat enhanced JSON encoder, for when you want that sort of thing."""
+    """
+    Somewhat enhanced JSON encoder, for when you want that sort of thing.
+    Represents Django models with their string representations and binary
+    values are redacted, so it cannot be used to reliably load a previous
+    dump.
+    """
     def default(self, o):
         if isinstance(o, Model):
             return str(o.pk)
@@ -119,6 +124,18 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             if hasattr(o, '__dict__'):
                 return o.__dict__
             raise ex
+
+
+class FailSafeJSONEncoder(DjangoJSONEncoder):
+    """
+    A JSON encoder that will not fail, but its results cannot be used to
+    reliably restore the original data.
+    """
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError as e:
+            return str(e)
 
 
 def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
