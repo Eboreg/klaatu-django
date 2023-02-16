@@ -159,8 +159,9 @@ def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
     )
     value = None
     for key in meta_keys:
-        if meta_dict.get(key):
-            value = meta_dict[key].split(':')[0]
+        meta_value = meta_dict.get(key, None)
+        if isinstance(meta_value, str):
+            value = meta_value.split(':')[0]
             if value:
                 break
     return value
