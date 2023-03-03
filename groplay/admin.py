@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from django.contrib import admin
 from django.contrib.admin.options import BaseModelAdmin, InlineModelAdmin
@@ -13,7 +13,7 @@ from django.utils.html import format_html
 from .typing import AdminFieldsetsType, AdminFieldsType, FormType
 
 if TYPE_CHECKING:
-    from django.utils.functional import _StrOrPromise
+    from django.utils.functional import _StrPromise
 
 
 class BooleanListFilter(admin.SimpleListFilter):
@@ -144,8 +144,8 @@ class RelatedLinkMixin:
         obj: Optional[Model],
         related_name: str,
         proxy_model: Optional[Type[Model]] = None,
-        verbose_name: "Optional[_StrOrPromise]" = None,
-        verbose_name_plural: "Optional[_StrOrPromise]" = None
+        verbose_name: "Union[_StrPromise, str, None]" = None,
+        verbose_name_plural: "Union[_StrPromise, str, None]" = None
     ):
         """
         `related_name` should be the name of a many-to-many or many-to-one

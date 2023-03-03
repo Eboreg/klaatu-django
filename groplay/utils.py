@@ -38,7 +38,7 @@ from django.utils import timezone
 from django.utils.translation import get_language, ngettext
 
 if TYPE_CHECKING:
-    from django.utils.functional import _StrOrPromise
+    from django.utils.functional import _StrPromise
 
 _T = TypeVar("_T")
 
@@ -609,7 +609,7 @@ def to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         return default
 
 
-def capitalize(string: "Union[str, _StrOrPromise, None]", language: Optional[str] = None) -> str:
+def capitalize(string: "Union[str, _StrPromise, None]", language: Optional[str] = None) -> str:
     """
     Language-dependent word capitalization. For English, it capitalizes every
     word except some hard-coded exceptions (the first and last word are always
