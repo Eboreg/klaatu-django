@@ -3,12 +3,25 @@ import functools
 import os
 import re
 import time
-from datetime import date
+from datetime import date, datetime, timedelta
 from importlib import import_module
 from math import ceil, floor, log10
 from statistics import mean, median
 from types import ModuleType
-from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Sequence, SupportsFloat, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    SupportsFloat,
+    TypeVar,
+    Union,
+)
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -23,6 +36,9 @@ from django.db.models.functions import Cast
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.translation import get_language, ngettext
+
+if TYPE_CHECKING:
+    from django.utils.functional import _StrOrPromise
 
 _T = TypeVar("_T")
 
@@ -167,7 +183,7 @@ def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
     return value
 
 
-def relativedelta_rounded(dt1: timezone.datetime, dt2: timezone.datetime) -> relativedelta:
+def relativedelta_rounded(dt1: datetime, dt2: datetime) -> relativedelta:
     """
     Rounds to the nearest "time unit", using perhaps arbitrary algorithms.
     """
@@ -186,8 +202,8 @@ def relativedelta_rounded(dt1: timezone.datetime, dt2: timezone.datetime) -> rel
     # Dates are different: return that difference as number of days
     if dt1.day != dt2.day:
         return relativedelta(
-            timezone.datetime(dt1.year, dt1.month, dt1.day),
-            timezone.datetime(dt2.year, dt2.month, dt2.day)
+            datetime(dt1.year, dt1.month, dt1.day),
+            datetime(dt2.year, dt2.month, dt2.day)
         )
     # >= 1 hour: return rounded hours
     if delta.hours:
@@ -200,7 +216,7 @@ def relativedelta_rounded(dt1: timezone.datetime, dt2: timezone.datetime) -> rel
 
 
 def timedelta_formatter(
-    value: Union[timezone.timedelta, float, int],
+    value: Union[timedelta, float, int],
     short_format: bool = False,
     rounded: bool = False
 ) -> str:
@@ -240,7 +256,7 @@ def timedelta_formatter(
 
 def daterange(start_date: date, end_date: date) -> Iterator[date]:
     for n in range(int((end_date - start_date).days)):
-        yield start_date + timezone.timedelta(days=n)
+        yield start_date + timedelta(days=n)
 
 
 def percent_rounded(part: Union[int, float], whole: Union[int, float]) -> int:
@@ -338,17 +354,17 @@ def rounded_percentage(part: Union[int, float], whole: Union[int, float]) -> Sup
     return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
 
 
-def round_up_timedelta(td: timezone.timedelta) -> timezone.timedelta:
+def round_up_timedelta(td: timedelta) -> timedelta:
     """
     If td > 30 min, round up to nearest hour. Otherwise, to nearest 10
     minute mark. Could be extended for higher time units, but nevermind now.
     """
     td_minutes = td.total_seconds() / 60
     if td_minutes > 30:
-        return timezone.timedelta(hours=ceil(td_minutes / 60))
+        return timedelta(hours=ceil(td_minutes / 60))
     if td_minutes >= 10:
-        return timezone.timedelta(minutes=int(td_minutes / 10) * 10 + 10)
-    return timezone.timedelta(minutes=10)
+        return timedelta(minutes=int(td_minutes / 10) * 10 + 10)
+    return timedelta(minutes=10)
 
 
 def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
@@ -593,7 +609,7 @@ def to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
         return default
 
 
-def capitalize(string: Optional[str], language: Optional[str] = None) -> str:
+def capitalize(string: "Union[str, _StrOrPromise, None]", language: Optional[str] = None) -> str:
     """
     Language-dependent word capitalization. For English, it capitalizes every
     word except some hard-coded exceptions (the first and last word are always

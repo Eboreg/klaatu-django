@@ -1,5 +1,5 @@
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from os.path import basename, splitext
 from typing import Any, Dict, List, Optional, Union
 from urllib.parse import urljoin
@@ -328,21 +328,21 @@ def naturaltime_short(value):
 
 @register.filter(name="timedelta")
 def timedelta_filter(value: Any) -> str:
-    if not isinstance(value, timezone.timedelta) or not value:
+    if not isinstance(value, timedelta) or not value:
         return "-"
     return timedelta_formatter(value)
 
 
 @register.filter
 def timedelta_rounded(value: Any) -> str:
-    if not isinstance(value, timezone.timedelta):
+    if not isinstance(value, timedelta):
         return "-"
     return timedelta_formatter(value, rounded=True)
 
 
 @register.filter
 def timedelta_rounded_short(value: Any) -> str:
-    if not isinstance(value, timezone.timedelta):
+    if not isinstance(value, timedelta):
         return "-"
     return timedelta_formatter(value, rounded=True, short_format=True)
 
@@ -350,10 +350,10 @@ def timedelta_rounded_short(value: Any) -> str:
 @register.filter
 def timedelta_time(value: Any) -> str:
     """Returns value in HH:MM:SS format."""
-    if not isinstance(value, (timezone.timedelta, int)):
+    if not isinstance(value, (timedelta, int)):
         return "-"
     if isinstance(value, int):
-        value = timezone.timedelta(seconds=value)
+        value = timedelta(seconds=value)
     hours = int(value.total_seconds() / 3600)
     minutes = int(value.total_seconds() % 3600 / 60)
     seconds = int(value.total_seconds() % 60)

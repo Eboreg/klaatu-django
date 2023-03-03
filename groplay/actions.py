@@ -13,11 +13,11 @@ def _set_is_active(modeladmin, request, queryset, value: bool):
     modeladmin.message_user(request, 'Updated %(count)d object(s).' % {'count': len(queryset)}, messages.SUCCESS)
 
 
-@admin.display(description='Mark selected %(verbose_name_plural)s as active')
+@admin.action(description='Mark selected %(verbose_name_plural)s as active')
 def mark_as_active(modeladmin, request, queryset):
     _set_is_active(modeladmin, request, queryset, True)
 
 
-@admin.display(description='Mark selected %(verbose_name_plural)s as inactive')
+@admin.action(description='Mark selected %(verbose_name_plural)s as inactive')
 def mark_as_inactive(modeladmin, request, queryset):
     _set_is_active(modeladmin, request, queryset, False)
