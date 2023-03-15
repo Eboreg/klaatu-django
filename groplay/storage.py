@@ -1,4 +1,5 @@
 import operator
+from abc import abstractmethod
 from enum import Enum, auto
 from pathlib import Path
 from typing import Collection, Generic, List, Tuple, TypeVar, Union
@@ -40,6 +41,7 @@ class SortableStorage(Storage, Generic[_T]):
 
         return sorted(files, key=lambda f: self.get_sort_value(f, nkeys, reverse), reverse=reverse_all)
 
+    @abstractmethod
     def get_sort_value(
         self,
         file: _T,
@@ -48,6 +50,7 @@ class SortableStorage(Storage, Generic[_T]):
     ) -> List[Union[str, int, float]]:
         raise NotImplementedError("SortableStorage subclasses must implement get_sort_value().")
 
+    @abstractmethod
     def list_recursive(self, path: str = "", sort: SortKeyArg = []) -> List[str]:
         """Recursively lists files in `path`, ordered by `sort`."""
         raise NotImplementedError("SortableStorage subclasses must implement list_recursive().")

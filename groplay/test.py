@@ -48,7 +48,12 @@ class ExtendedTestCase(TestCase):
         keys and values, respectively
         """
         for k, v in expected.items():
-            self.assertEqual(getattr(instance, k), v)
+            try:
+                self.assertEqual(getattr(instance, k), v)
+            except self.failureException:
+                raise self.failureException(
+                    "instance.%s (%s) != expected[\"%s\"] (%s)" % (k, getattr(instance, k), k, v)
+                )
 
     def assertResponseJSONContains(
         self,

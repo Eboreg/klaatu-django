@@ -134,6 +134,8 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             return list(o)
         if isinstance(o, bytes):
             return "[Binary data]"
+        if isinstance(o, set):
+            o = list(o)
         try:
             return super().default(o)
         except TypeError as ex:
