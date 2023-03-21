@@ -635,3 +635,7 @@ def capitalize(string: "Union[str, _StrPromise, None]", language: Optional[str] 
         return " ".join(words)
     else:
         return string.capitalize()
+
+
+def nonulls(sequence: Sequence[Optional[_T]]) -> List[_T]:
+    return [item for item in sequence if item is not None]
