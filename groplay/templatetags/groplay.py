@@ -491,3 +491,9 @@ def admin_boolean_icon(value: bool) -> str:
 @stringfilter
 def capitalize_string(value: str) -> str:
     return capitalize(value)
+
+
+@register.filter
+@stringfilter
+def full_uri(value: str) -> str:
+    return urljoin(settings.ROOT_URL, value)
