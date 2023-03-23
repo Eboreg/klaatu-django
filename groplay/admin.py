@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
 
 from django.contrib import admin
-from django.contrib.admin.options import BaseModelAdmin, InlineModelAdmin
+from django.contrib.admin.options import InlineModelAdmin
 from django.contrib.admin.sites import AdminSite
 from django.contrib.admin.utils import quote
 from django.db.models import Model, QuerySet
@@ -46,16 +46,16 @@ class SetCreatedByAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
-class SetCreatedByInlineAdmin(BaseModelAdmin):
+class SetCreatedByInlineAdmin(admin.ModelAdmin):
     # Set `created_by` on inline objects in admin
     def save_formset(self, request, form, formset, change):
-        formset.save()
+        formset.save(commit=False)
         for obj in formset.new_objects:
             try:
                 obj.created_by = request.user
-                obj.save()
             except AttributeError:
                 pass
+        super().save_formset(request, form, formset, change)
 
 
 class TabularManyToManyInline(admin.TabularInline):
