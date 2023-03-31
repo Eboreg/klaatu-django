@@ -35,7 +35,7 @@ from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
-from django.utils.translation import get_language, ngettext
+from django.utils.translation import get_language, gettext as _, ngettext
 
 if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
@@ -638,4 +638,47 @@ def capitalize(string: "Union[str, _StrPromise, None]", language: Optional[str] 
 
 
 def nonulls(sequence: Sequence[Optional[_T]]) -> List[_T]:
+    """Just filters away None values from `sequence`."""
     return [item for item in sequence if item is not None]
+
+
+def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -> str:
+    """
+    Turns `items` into a natural-language string. Will be "or"-separated if
+    `or_separated == True`, else "and"-separated. Of course, the English
+    original strings use the Oxford comma.
+
+    Example:
+    In [1]: natural_list(
+       ...:     ["foo", "bar", "baz"],
+       ...:     or_separated=True,
+       ...:     enclose_items_in_tag="em"
+       ...: )
+    Out[1]: '<em>foo</em>, <em>bar</em>, or <em>baz</em>'
+    """
+    def enclose(item):
+        if enclose_items_in_tag:
+            return "<%s>%s</%s>" % (enclose_items_in_tag, item, enclose_items_in_tag)
+        return str(item)
+
+    item_list = list(items)
+    if len(item_list) == 0:
+        return ""
+    if len(item_list) == 1:
+        return enclose(item_list[0])
+    if len(item_list) == 2:
+        return "%s %s %s" % (enclose(item_list[0]), _("or") if or_separated else _("and"), enclose(item_list[1]))
+    vars = {"list": ", ".join([enclose(i) for i in item_list[:-1]]), "last_item": enclose(item_list[-1])}
+    if or_separated:
+        # Translators: %(list)s is a comma-separated list of >= 2 items.
+        return _("%(list)s, or %(last_item)s") % vars
+    # Translators: %(list)s is a comma-separated list of >= 2 items.
+    return _("%(list)s, and %(last_item)s") % vars
+
+
+def natural_and_list(items: Iterable, enclose_items_in_tag="") -> str:
+    return natural_list(items, enclose_items_in_tag=enclose_items_in_tag)
+
+
+def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:
+    return natural_list(items, or_separated=True, enclose_items_in_tag=enclose_items_in_tag)

@@ -1,7 +1,7 @@
 import re
 from datetime import date, datetime, timedelta
 from os.path import basename, splitext
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin
 
 from django import template
@@ -17,7 +17,7 @@ from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
-from groplay.utils import capitalize, relativedelta_rounded, timedelta_formatter
+from groplay.utils import capitalize, natural_and_list, natural_or_list, relativedelta_rounded, timedelta_formatter
 
 register = template.Library()
 
@@ -497,3 +497,13 @@ def capitalize_string(value: str) -> str:
 @stringfilter
 def full_uri(value: str) -> str:
     return urljoin(settings.ROOT_URL, value)
+
+
+@register.filter(name="natural_and_list")
+def natural_and_list_filter(value: Iterable) -> str:
+    return natural_and_list(value)
+
+
+@register.filter(name="natural_or_list")
+def natural_or_list_filter(value: Iterable) -> str:
+    return natural_or_list(value)
