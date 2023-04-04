@@ -5,7 +5,8 @@
   data-content-url="{{ modal.url }}"
   data-required-params="{{ modal.required_params|join:" " }}"
   data-optional-params="{{ modal.optional_params|join:" " }}"
-  {% for param in modal.required_params|add:modal.optional_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}>
+  {% for param in modal.required_params|add:modal.optional_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}
+  {% for key, value in modal.data_attrs.items %} {{ key }}="{{ value }}"{% endfor %}>
   <div class="modal-dialog {% if modal.scrollable %}modal-dialog-scrollable{% endif %} {% if modal.large %}modal-lg{% endif %} {% if modal.center %}modal-dialog-centered{% endif %}">
     <div class="w-100 position-relative">
       <div class="modal-content dynamic-content"></div>

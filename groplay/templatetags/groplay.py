@@ -228,6 +228,7 @@ def dynamic_modal(
     always_load=False,
     scrollable=False,
     center=False,
+    **kwargs,
 ):
     """
     Includes the Bootstrap modal "skeleton" from groplay/modals/dynamic.html
@@ -238,6 +239,13 @@ def dynamic_modal(
 
     The template rendered by this URL will preferably extend
     groplay/modals/dynamic_content.html.
+
+    Any extra **kwargs, whose key begins with "data_", will be added to the
+    .modal element as "data-" attributes.
+    For example, `{% dynamic_modal ... data_foo_bar="42" %}` will result in a
+    .modal element with `data-foo-bar="42"`.
+
+    Extra kwargs whose keys do _not_ begin with "data_" will be ignored.
     """
     required_params = required_params.strip()
     optional_params = optional_params.strip()
@@ -260,6 +268,7 @@ def dynamic_modal(
             "always_load": always_load,
             "scrollable": scrollable,
             "center": center,
+            "data_attrs": {k.replace("_", "-"): v for k, v in kwargs.items() if k.startswith("data_")},
         },
     }
 
