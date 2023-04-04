@@ -1,7 +1,6 @@
 {% load i18n groplay %}
 
-<div class="modal dynamic-container {{ modal.classes }}" id="{{ modal.id }}" role="dialog" data-loaded="false" tabindex="-1"
-  {% if modal.always_load %} data-always-load="true"{% endif %}
+<div class="modal dynamic-container {{ modal.classes }}" id="{{ modal.id }}" role="dialog" tabindex="-1"
   data-content-url="{{ modal.url }}"
   data-required-params="{{ modal.required_params|join:" " }}"
   data-optional-params="{{ modal.optional_params|join:" " }}"
