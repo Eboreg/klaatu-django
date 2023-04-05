@@ -7,9 +7,9 @@ takes them from GET params.
 {% endcomment %}
 
 <div class="modal {{ modal.classes }} {% block classes %}{% endblock classes %}" id="{{ modal.id }}" role="dialog"
-  data-required-params="{{ modal.required_params|join:" " }}"
-  data-optional-params="{{ modal.optional_params|join:" " }}"
-  {% for param in modal.required_params|add:modal.optional_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}
+  data-required-params="{{ modal.required_params }}"
+  data-optional-params="{{ modal.optional_params }}"
+  {% for param in modal.all_params %} data-{{ param }}="{% map_to_context param %}"{% endfor %}
   tabindex="-1">
   <div
     class="modal-dialog {% if modal.scrollable %}modal-dialog-scrollable{% endif %} {% if modal.large %}modal-lg{% endif %} {% if modal.center %}modal-dialog-centered{% endif %}">

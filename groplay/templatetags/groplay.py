@@ -13,6 +13,7 @@ from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
@@ -24,14 +25,13 @@ register = template.Library()
 
 class NaturalTimeShortFormatterMeta(type):
     def __new__(cls, name, bases, dct):
+        """
+        The 'past' ones are identical to the originals, but I'm including them
+        because the default Swedish translations are wrong.
+        """
         klass = super().__new__(cls, name, bases, dct)
         time_strings = getattr(klass, "time_strings", {})
         time_strings.update({
-            # The 'past' ones are identical to the originals, but I'm
-            # including them because the default Swedish translation is wrong
-            # The stubs are also wrong in assuming we cannot pass a string as
-            # argument instead of an int:
-            # https://docs.djangoproject.com/en/2.2/topics/i18n/translation/#lazy-translations-and-plural
             'past-day': gettext_lazy('%(delta)s ago'),
             'past-hour': ngettext_lazy('an hour ago', '%(count)s hours ago', 'count'),
             'past-minute': ngettext_lazy('a minute ago', '%(count)s minutes ago', 'count'),
@@ -51,7 +51,7 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
     """
     Ugly hack to only return the first part of the string when the timedelta
     >= 1 day (NaturalTimeFormatter returns "1 month, 3 days" etc, we only
-    want "1 month" here)
+    want "1 month" here).
     """
     @classmethod
     def string_for(cls, then):
@@ -154,8 +154,10 @@ def email_section(parser: template.base.Parser, token: template.base.Token):
 
 @register.simple_tag
 def join_query_params(request: HttpRequest, **kwargs) -> str:
-    # Will coerce the new QueryDict to only contain one value for each key,
-    # with priority to those in kwargs
+    """
+    Will coerce the new QueryDict to only contain one value for each key,
+    with priority to those in kwargs.
+    """
     params = {k: v for k, v in request.GET.dict().items() if not isinstance(v, list)}
     params.update(kwargs)
     querydict = QueryDict(mutable=True)
@@ -181,7 +183,7 @@ def modal(
     scrollable=False,
     center=False,
     **kwargs
-):
+) -> str:
     """
     Gets a Bootstrap modal from the template file `template_name`, renders it
     with context from the parameters, and returns the result. The template
@@ -197,6 +199,10 @@ def modal(
     """
     required_params = required_params.strip()
     optional_params = optional_params.strip()
+    param_list = (
+        (required_params.split(" ") if required_params else []) +
+        (optional_params.split(" ") if optional_params else [])
+    )
 
     if not modal_id:
         modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
@@ -204,8 +210,9 @@ def modal(
     render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
 
     render_context["modal"] = {
-        "required_params": required_params.split(" ") if required_params else [],
-        "optional_params": optional_params.split(" ") if optional_params else [],
+        "required_params": required_params,
+        "optional_params": optional_params,
+        "all_params": param_list,
         "id": modal_id,
         "classes": classes,
         "footer": footer,
@@ -214,7 +221,7 @@ def modal(
         "center": center,
     }
     render_context.update(kwargs)
-    return mark_safe(render_to_string(template_name, render_context))
+    return mark_safe(render_to_string(template_name=template_name, context=render_context, request=context.request))
 
 
 @register.inclusion_tag("groplay/modals/dynamic.html")
@@ -248,6 +255,10 @@ def dynamic_modal(
     """
     required_params = required_params.strip()
     optional_params = optional_params.strip()
+    param_list = (
+        (required_params.split(" ") if required_params else []) +
+        (optional_params.split(" ") if optional_params else [])
+    )
 
     url = url.strip()
     if url and not url.startswith("/"):
@@ -261,8 +272,9 @@ def dynamic_modal(
             "id": modal_id.strip(),
             "url": url,
             "classes": classes.strip(),
-            "required_params": required_params.split(" ") if required_params else [],
-            "optional_params": optional_params.split(" ") if optional_params else [],
+            "required_params": required_params,
+            "optional_params": optional_params,
+            "all_params": param_list,
             "large": large,
             "scrollable": scrollable,
             "center": center,
@@ -323,7 +335,8 @@ def map_to_context(context: template.RequestContext, key: str):
 
 @register.simple_tag
 def static_full_uri(value: str) -> str:
-    return urljoin(settings.ROOT_URL, static(value))
+    root_url = getattr(settings, "ROOT_URL", "")
+    return urljoin(root_url, static(value))
 
 
 ### FILTERS ###############################
@@ -483,15 +496,11 @@ def delta_days(value) -> Optional[int]:
 @register.filter
 def admin_boolean_icon(value: bool) -> str:
     """
-    _boolean_icon() exists but is probably considered "internal", hence the
-    exception checking.
+    Taken from django.contrib.admin.templatetags.admin_list._boolean_icon(),
+    which is probably considered "internal", so I copied its code instead.
     """
-    try:
-        from django.contrib.admin.templatetags.admin_list import _boolean_icon  # type: ignore
-    except ImportError:
-        return str(value)
-
-    return _boolean_icon(value)
+    icon_url = static('admin/img/icon-%s.svg' % {True: 'yes', False: 'no', None: 'unknown'}[value])
+    return format_html('<img src="{}" alt="{}">', icon_url, value)
 
 
 @register.filter(name="capitalize")
@@ -503,7 +512,8 @@ def capitalize_string(value: str) -> str:
 @register.filter
 @stringfilter
 def full_uri(value: str) -> str:
-    return urljoin(settings.ROOT_URL, value)
+    root_url = getattr(settings, "ROOT_URL", "")
+    return urljoin(root_url, value)
 
 
 @register.filter(name="natural_and_list")
