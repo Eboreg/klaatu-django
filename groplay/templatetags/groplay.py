@@ -1,6 +1,5 @@
 import re
 from datetime import date, datetime, timedelta
-from os.path import basename, splitext
 from typing import Any, Dict, Iterable, List, Optional, Union
 from urllib.parse import urljoin
 
@@ -9,7 +8,6 @@ from django.conf import settings
 from django.contrib.humanize.templatetags.humanize import NaturalTimeFormatter
 from django.http.request import HttpRequest, QueryDict
 from django.template.defaultfilters import stringfilter
-from django.template.loader import render_to_string
 from django.templatetags.static import static
 from django.urls import reverse
 from django.utils import timezone
@@ -18,7 +16,14 @@ from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
-from groplay.utils import capitalize, natural_and_list, natural_or_list, relativedelta_rounded, timedelta_formatter
+from groplay.utils import (
+    capitalize,
+    natural_and_list,
+    natural_or_list,
+    relativedelta_rounded,
+    render_modal,
+    timedelta_formatter,
+)
 
 register = template.Library()
 
@@ -184,44 +189,22 @@ def modal(
     center=False,
     **kwargs
 ) -> str:
-    """
-    Gets a Bootstrap modal from the template file `template_name`, renders it
-    with context from the parameters, and returns the result. The template
-    file will preferably extend groplay/modals/base.html.
-
-    `required_params` and `optional_params` are there to tell the JS function
-    openModalOnLoad() which GET params to look for. The required ones will
-    be injected as `data-required-params` on the .modal element in base.html,
-    the optional ones as `data-optional-params`. All those parameters will be
-    stripped from the URL when openModalOnLoad() is finished. The only
-    difference between the two kinds is that without the required parameters,
-    openModalOnLoad() will refuse to open the modal.
-    """
-    required_params = required_params.strip()
-    optional_params = optional_params.strip()
-    param_list = (
-        (required_params.split(" ") if required_params else []) +
-        (optional_params.split(" ") if optional_params else [])
-    )
-
-    if not modal_id:
-        modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
-
     render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
-
-    render_context["modal"] = {
-        "required_params": required_params,
-        "optional_params": optional_params,
-        "all_params": param_list,
-        "id": modal_id,
-        "classes": classes,
-        "footer": footer,
-        "large": large,
-        "scrollable": scrollable,
-        "center": center,
-    }
     render_context.update(kwargs)
-    return mark_safe(render_to_string(template_name=template_name, context=render_context, request=context.request))
+
+    return render_modal(
+        template_name=template_name,
+        request=context.request,
+        modal_id=modal_id,
+        classes=classes,
+        required_params=required_params,
+        optional_params=optional_params,
+        footer=footer,
+        large=large,
+        scrollable=scrollable,
+        center=center,
+        context=render_context,
+    )
 
 
 @register.inclusion_tag("groplay/modals/dynamic.html")

@@ -6,6 +6,7 @@ import time
 from datetime import date, datetime, timedelta
 from importlib import import_module
 from math import ceil, floor, log10
+from os.path import basename, splitext
 from statistics import mean, median
 from types import ModuleType
 from typing import (
@@ -33,8 +34,11 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.core.validators import validate_email
 from django.db.models import DurationField, Model, QuerySet
 from django.db.models.functions import Cast
+from django.http import HttpRequest
+from django.template.loader import render_to_string
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
+from django.utils.safestring import mark_safe
 from django.utils.translation import get_language, gettext as _, ngettext
 
 if TYPE_CHECKING:
@@ -682,3 +686,54 @@ def natural_and_list(items: Iterable, enclose_items_in_tag="") -> str:
 
 def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:
     return natural_list(items, or_separated=True, enclose_items_in_tag=enclose_items_in_tag)
+
+
+def render_modal(
+    template_name: str,
+    request: Optional[HttpRequest] = None,
+    modal_id="",
+    classes="",
+    required_params="",
+    optional_params="",
+    footer=True,
+    large=False,
+    scrollable=False,
+    center=False,
+    context: Optional[Dict[str, Any]] = None,
+):
+    """
+    Gets a Bootstrap modal from the template file `template_name`, renders it
+    with context from the parameters, and returns the result. The template
+    file will preferably extend groplay/modals/base.html.
+
+    `required_params` and `optional_params` are there to tell the JS function
+    openModalOnLoad() which GET params to look for. The required ones will
+    be injected as `data-required-params` on the .modal element in base.html,
+    the optional ones as `data-optional-params`. All those parameters will be
+    stripped from the URL when openModalOnLoad() is finished. The only
+    difference between the two kinds is that without the required parameters,
+    openModalOnLoad() will refuse to open the modal.
+    """
+    required_params = required_params.strip()
+    optional_params = optional_params.strip()
+    param_list = (
+        (required_params.split(" ") if required_params else []) +
+        (optional_params.split(" ") if optional_params else [])
+    )
+
+    if not modal_id:
+        modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
+
+    context = context or {}
+    context["modal"] = {
+        "required_params": required_params,
+        "optional_params": optional_params,
+        "all_params": param_list,
+        "id": modal_id,
+        "classes": classes,
+        "footer": footer,
+        "large": large,
+        "scrollable": scrollable,
+        "center": center,
+    }
+    return mark_safe(render_to_string(template_name=template_name, context=context, request=request))

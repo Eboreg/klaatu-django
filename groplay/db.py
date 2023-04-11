@@ -113,10 +113,14 @@ class TruncatedCharField(models.CharField):
         if value and self.max_length and len(value) > self.max_length:
             logger.warning(
                 'Value of TruncatedCharField exceeds max_length',
-                extra={'model': getattr(self, 'model'), 'value': value}
+                extra={'model': getattr(self, 'model', None), 'value': value}
             )
             return value[:self.max_length]
         return value
+
+
+class TruncatedURLField(TruncatedCharField, models.URLField):
+    ...
 
 
 class PickleField(BinaryField):
