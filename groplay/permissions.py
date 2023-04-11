@@ -1,7 +1,7 @@
 from rest_framework.permissions import BasePermission
 
 
-class UserObjectPermissions(BasePermission):  # type: ignore
+class UserObjectPermissions(BasePermission):
     """
     Usage: Implement the class method `has_permission(user, verb)` and/or the
     object method `has_object_permission(user, verb)` on the models.
