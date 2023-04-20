@@ -1,6 +1,6 @@
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable
 from urllib.parse import urljoin
 
 from django import template
@@ -268,7 +268,7 @@ def dynamic_modal(
 
 @register.inclusion_tag("groplay/preloader.html")
 def preloader(
-    id: Optional[str] = None,
+    id: str | None = None,
     position="absolute",
     show=False,
     large=False,
@@ -424,29 +424,19 @@ def add_str(value, arg) -> str:
 
 
 @register.filter
-def emphasize(text: str, words: Union[str, List[str]]):
+def emphasize(text: str, words: str | Iterable[str]):
     """
     Make all instances of `words` in `text` <strong>bold</strong>.
     Case insensitive.
-
-    Details on regex: First a negative lookbehind assertion to make sure the
-    current position is not preceded by a word character (i.e. we're at the
-    beginning of a word). Then a match for any of our search words, OR:ed
-    together. Lastly, a negative lookahead assertion to make sure we're at the
-    end of a word. End result is that all case insensitive whole word matches
-    of `words` in `text` will be made bold.
     """
     if isinstance(words, str):
-        words = [words]
-    words = [w.lower() for w in words]
-    pattern = "|".join(words)
-    return mark_safe(
-        re.sub(rf"(?<!\w=)({pattern})(?!\w)", r"<strong>\1</strong>", text, flags=re.IGNORECASE)
-    )
+        words = words.split(" ")
+    pattern = "|".join([w.lower() for w in words])
+    return mark_safe(re.sub(f"({pattern})", r"<strong>\1</strong>", text, flags=re.IGNORECASE))
 
 
 @register.filter(name="abs")
-def abs_value(value) -> Optional[int]:
+def abs_value(value) -> int | None:
     """
     Simply returns the absolute value of `value`, or None if it cannot be
     coerced to integer.
@@ -458,7 +448,7 @@ def abs_value(value) -> Optional[int]:
 
 
 @register.filter
-def delta_days(value) -> Optional[int]:
+def delta_days(value) -> int | None:
     """
     Return number of days between now and `value`. Positive = future.
     `value` may be a date or datetime object, or a string which can be parsed
