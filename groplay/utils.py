@@ -9,20 +9,7 @@ from math import ceil, floor, log10
 from os.path import basename, splitext
 from statistics import mean, median
 from types import ModuleType
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    SupportsFloat,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Sequence, SupportsFloat, TypeVar
 from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
@@ -47,7 +34,7 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-def append_query_to_url(url: str, params: dict, conditional_params: Optional[dict] = None, safe: str = '') -> str:
+def append_query_to_url(url: str, params: dict, conditional_params: dict | None = None, safe: str = '') -> str:
     """
     Adds GET query from `params` to `url`, or appends it if there already is
     one.
@@ -113,7 +100,7 @@ class CastToDuration(Cast):
         return super().as_sqlite(compiler, connection, template=template, **extra_context)
 
 
-def soupify(value: Union[str, bytes]) -> BeautifulSoup:
+def soupify(value: str | bytes) -> BeautifulSoup:
     """
     Background: BeautifulSoup wrongly guessed the encoding of API json
     responses as latin-1, which lead to bastardized strings and much agony
@@ -160,7 +147,7 @@ class FailSafeJSONEncoder(DjangoJSONEncoder):
             return str(e)
 
 
-def get_client_ip(meta_dict: Dict[str, Any]) -> Optional[str]:
+def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.
@@ -222,7 +209,7 @@ def relativedelta_rounded(dt1: datetime, dt2: datetime) -> relativedelta:
 
 
 def timedelta_formatter(
-    value: Union[timedelta, float, int],
+    value: timedelta | float | int,
     short_format: bool = False,
     rounded: bool = False
 ) -> str:
@@ -265,7 +252,7 @@ def daterange(start_date: date, end_date: date) -> Iterator[date]:
         yield start_date + timedelta(days=n)
 
 
-def percent_rounded(part: Union[int, float], whole: Union[int, float]) -> int:
+def percent_rounded(part: int | float, whole: int | float) -> int:
     if not whole:
         return 0
     return round(part / whole * 100)
@@ -343,7 +330,7 @@ def extract_views_from_urlpatterns(
     }
 
 
-def round_to_n(x: Union[int, float], n: int) -> SupportsFloat:
+def round_to_n(x: int | float, n: int) -> SupportsFloat:
     """
     Rounds x to n significant digits, except if the result is a whole number
     it is cast to int
@@ -355,7 +342,7 @@ def round_to_n(x: Union[int, float], n: int) -> SupportsFloat:
         return int(result) if not result % 1 else result
 
 
-def rounded_percentage(part: Union[int, float], whole: Union[int, float]) -> SupportsFloat:
+def rounded_percentage(part: int | float, whole: int | float) -> SupportsFloat:
     """Percentage rounded to 3 significant digits"""
     return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
 
@@ -420,7 +407,7 @@ def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
     return ret
 
 
-def int_to_string(value: Optional[int], language: str, nbsp: bool = False) -> str:
+def int_to_string(value: int | None, language: str, nbsp: bool = False) -> str:
     # Format integer with correct thousand separators
     if value is None:
         return ""
@@ -446,7 +433,7 @@ def int_to_string(value: Optional[int], language: str, nbsp: bool = False) -> st
     )
 
 
-def circulate(lst: Union[list, tuple], rounds: int) -> list:
+def circulate(lst: list | tuple, rounds: int) -> list:
     """
     Shifts `lst` left `rounds` times. Good for e.g. circulating colours in
     a graph.
@@ -460,7 +447,7 @@ def circulate(lst: Union[list, tuple], rounds: int) -> list:
     return lst
 
 
-def getitem_nullable(seq: Iterable[_T], idx: int, cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+def getitem_nullable(seq: Iterable[_T], idx: int, cond: Callable[[_T], bool] | None = None) -> _T | None:
     """
     If `seq` has an item at position `idx`, return that item. Otherwise return
     None. Similar to how QuerySet's first() & last() operate.
@@ -486,7 +473,7 @@ def getitem_nullable(seq: Iterable[_T], idx: int, cond: Optional[Callable[[_T], 
         return None
 
 
-def getitem0_nullable(seq: Iterable[_T], cond: Optional[Callable[[_T], bool]] = None) -> Optional[_T]:
+def getitem0_nullable(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T | None:
     return getitem_nullable(seq, 0, cond)
 
 
@@ -608,14 +595,14 @@ def is_valid_email(value: Any) -> bool:
     return True
 
 
-def to_int(value: Any, default: Optional[int] = None) -> Optional[int]:
+def to_int(value: Any, default: int | None = None) -> int | None:
     try:
         return int(value)
     except (ValueError, TypeError):
         return default
 
 
-def capitalize(string: "Union[str, _StrPromise, None]", language: Optional[str] = None) -> str:
+def capitalize(string: "str | _StrPromise | None", language: str | None = None) -> str:
     """
     Language-dependent word capitalization. For English, it capitalizes every
     word except some hard-coded exceptions (the first and last word are always
@@ -641,7 +628,7 @@ def capitalize(string: "Union[str, _StrPromise, None]", language: Optional[str] 
         return string.capitalize()
 
 
-def nonulls(sequence: Sequence[Optional[_T]]) -> List[_T]:
+def nonulls(sequence: Sequence[_T | None]) -> List[_T]:
     """Just filters away None values from `sequence`."""
     return [item for item in sequence if item is not None]
 
@@ -690,7 +677,7 @@ def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:
 
 def render_modal(
     template_name: str,
-    request: Optional[HttpRequest] = None,
+    request: HttpRequest | None = None,
     modal_id="",
     classes="",
     required_params="",
@@ -699,7 +686,7 @@ def render_modal(
     large=False,
     scrollable=False,
     center=False,
-    context: Optional[Dict[str, Any]] = None,
+    context: Dict[str, Any] | None = None,
 ):
     """
     Gets a Bootstrap modal from the template file `template_name`, renders it
