@@ -737,3 +737,7 @@ def render_modal(
         "center": center,
     }
     return mark_safe(render_to_string(template_name=template_name, context=context, request=request))
+
+
+def can_coerce_to_int(value: Any) -> bool:
+    return to_int(value) is not None
