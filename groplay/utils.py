@@ -728,3 +728,10 @@ def render_modal(
 
 def can_coerce_to_int(value: Any) -> bool:
     return to_int(value) is not None
+
+
+def is_url_name(value: str) -> bool:
+    """
+    Really just a guess, based on a somewhat consistent naming of Django URLs.
+    """
+    return bool(re.match(r"^[a-zA-Z0-9_\-:]+$", value))
