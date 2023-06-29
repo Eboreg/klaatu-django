@@ -150,10 +150,10 @@ class RedirectIfNotFoundMixin(SingleObjectMixin):
     def get_redirect_url(self) -> str:
         if self.redirect_url:
             return self.redirect_url
-        if self.fallback_to_referer and "HTTP_REFERER" in self.request.META:
+        if self.fallback_to_referer and "referer" in self.request.headers:
             # Ugly hack so we don't redirect back to /login/?next=... or
             # whatever, which in turn would redirect us back here, and so on
-            return self.request.META["HTTP_REFERER"].split("?")[0]
+            return self.request.headers["referer"].split("?")[0]
         # Last resort:
         raise Http404
 
