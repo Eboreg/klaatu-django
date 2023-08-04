@@ -331,31 +331,38 @@ def naturaltime_short(value):
 
 @register.filter(name="timedelta")
 def timedelta_filter(value: Any) -> str:
-    if not isinstance(value, timedelta) or not value:
+    if not isinstance(value, (timedelta, float, int)) or not value:
         return "-"
     return timedelta_formatter(value)
 
 
 @register.filter
 def timedelta_rounded(value: Any) -> str:
-    if not isinstance(value, timedelta):
+    if not isinstance(value, (timedelta, float, int)) or not value:
         return "-"
     return timedelta_formatter(value, rounded=True)
 
 
 @register.filter
 def timedelta_rounded_short(value: Any) -> str:
-    if not isinstance(value, timedelta):
+    if not isinstance(value, (timedelta, float, int)) or not value:
         return "-"
     return timedelta_formatter(value, rounded=True, short_format=True)
 
 
 @register.filter
+def timedelta_short(value: Any) -> str:
+    if not isinstance(value, (timedelta, float, int)) or not value:
+        return "-"
+    return timedelta_formatter(value, short_format=True)
+
+
+@register.filter
 def timedelta_time(value: Any) -> str:
     """Returns value in HH:MM:SS format."""
-    if not isinstance(value, (timedelta, int)):
+    if not isinstance(value, (timedelta, float, int)):
         return "-"
-    if isinstance(value, int):
+    if isinstance(value, (int, float)):
         value = timedelta(seconds=value)
     hours = int(value.total_seconds() / 3600)
     minutes = int(value.total_seconds() % 3600 / 60)
