@@ -7,6 +7,8 @@ from django import template
 from django.conf import settings
 from django.contrib.humanize.templatetags.humanize import NaturalTimeFormatter
 from django.http.request import HttpRequest, QueryDict
+from django.template.base import token_kwargs
+from django.template.context import Context as Context
 from django.template.defaultfilters import stringfilter
 from django.templatetags.static import static
 from django.urls import reverse
@@ -320,6 +322,71 @@ def map_to_context(context: template.RequestContext, key: str):
 def static_full_uri(value: str) -> str:
     root_url = getattr(settings, "ROOT_URL", "")
     return urljoin(root_url, static(value))
+
+
+class LinkNode(template.Node):
+    def __init__(
+        self,
+        nodelist: template.NodeList,
+        href: template.base.FilterExpression,
+        **kwargs: template.base.FilterExpression,
+    ):
+        self.nodelist = nodelist
+        self.href = href
+        self.kwargs = kwargs
+
+    def render(self, context: Context):
+        href = self.href.resolve(context, ignore_failures=True)
+        kwargs = {
+            key.replace("_", "-"): value.resolve(context, ignore_failures=True)
+            for key, value in self.kwargs.items()
+        }
+        root_url = getattr(settings, "ROOT_URL", "")
+        if root_url and isinstance(href, str):
+            new_tab = bool(re.match("^https?://", href)) and not href.startswith(root_url)
+        else:
+            new_tab = False
+
+        return format_html(
+            '<a href="{}"{}{}>{}</a>',
+            href,
+            mark_safe(' target="_blank"') if new_tab else " ",
+            mark_safe("".join([f' {key}="{value}"' for key, value in kwargs.items()])),
+            self.nodelist.render(context),
+        )
+
+
+@register.tag(name="link")
+def do_link(parser: template.base.Parser, token: template.base.Token):
+    """
+    Outputs an <a> tag. The only purpose of this is to automatically inject
+    `target="_blank"` if it's an external link, so there's a good argument for
+    this being overkill. But I learned stuff from writing it, and that's never
+    a waste.
+
+    Has one required positional argument, which is the link URL. This can be a
+    raw string or a template variable. Keyword arguments will be used as
+    attributes on the <a> element, with underscores replaced by dashes in the
+    keys.
+
+    Usage:
+    {% link "https://external-link.com" data_foo="bar" %}
+    <p>This is my link</p>
+    {% endlink %}
+
+    Output:
+    <a href="https://external-link.com" target="_blank" data-foo="bar">
+        <p>This is my link</p>
+    </a>
+    """
+    bits = token.split_contents()
+    if len(bits) < 2:
+        raise template.TemplateSyntaxError("'link' template tags must contain a URL.")
+    href = parser.compile_filter(bits[1])
+    kwargs = token_kwargs(bits[2:], parser)
+    nodelist = parser.parse(("endlink",))
+    parser.delete_first_token()
+    return LinkNode(nodelist, href, **kwargs)
 
 
 ### FILTERS ###############################
