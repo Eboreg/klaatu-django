@@ -343,14 +343,20 @@ class LinkNode(template.Node):
         }
         root_url = getattr(settings, "ROOT_URL", "")
         if root_url and isinstance(href, str):
-            new_tab = bool(re.match("^https?://", href)) and not href.startswith(root_url)
+            is_external = bool(re.match("^https?://", href)) and not href.startswith(root_url)
         else:
-            new_tab = False
+            is_external = False
+        if is_external:
+            if "rel" in kwargs:
+                if "external" not in kwargs["rel"].split(" "):
+                    kwargs["rel"] += " external"
+            else:
+                kwargs["rel"] = "external"
 
         return format_html(
             '<a href="{}"{}{}>{}</a>',
             href,
-            mark_safe(' target="_blank"') if new_tab else " ",
+            mark_safe(' target="_blank"') if is_external else " ",
             mark_safe("".join([f' {key}="{value}"' for key, value in kwargs.items()])),
             self.nodelist.render(context),
         )
@@ -360,9 +366,9 @@ class LinkNode(template.Node):
 def do_link(parser: template.base.Parser, token: template.base.Token):
     """
     Outputs an <a> tag. The only purpose of this is to automatically inject
-    `target="_blank"` if it's an external link, so there's a good argument for
-    this being overkill. But I learned stuff from writing it, and that's never
-    a waste.
+    `target="_blank"` and `rel="external"` if it's an external link, so
+    there's a good argument for this being overkill. But I learned stuff from
+    writing it, and that's never a waste.
 
     Has one required positional argument, which is the link URL. This can be a
     raw string or a template variable. Keyword arguments will be used as
