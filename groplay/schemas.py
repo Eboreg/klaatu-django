@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, List, Optional, Union
+from typing import Any, List
 
 from rest_framework import serializers
 from rest_framework.compat import uritemplate
@@ -22,7 +22,7 @@ class ExtraResponse:
     description: str
     example: Any
 
-    def __init__(self, code: Union[str, int], key: str, description: str, example: Any = None):
+    def __init__(self, code: str | int, key: str, description: str, example: Any = None):
         self.code = str(code) if isinstance(code, int) else code
         self.key = key
         self.description = description
@@ -84,7 +84,7 @@ class BaseSchemaGenerator(_SchemaGenerator):
 
 class BaseSchemaMixin:
     operation_description = ''
-    operation_summary: Optional[str] = None
+    operation_summary: str | None = None
     optional_response_fields: dict
     view: Any
 
@@ -122,7 +122,7 @@ class BaseSchemaMixin:
                 })
         return responses
 
-    def get_action(self) -> Optional[str]:
+    def get_action(self) -> str | None:
         if hasattr(self, 'view'):
             return getattr(self.view, 'action', None)
         return None

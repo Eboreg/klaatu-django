@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, Mapping, Type
 
 from django.conf import settings
 from django.contrib import messages
@@ -140,11 +140,11 @@ class RedirectIfNotFoundMixin(SingleObjectMixin):
     found, with an optional error message.
     """
     fallback_to_referer = True
-    redirect_message: Optional[str] = None
-    redirect_url: Optional[str] = None
+    redirect_message: str | None = None
+    redirect_url: str | None = None
     request: HttpRequest
 
-    def get_redirect_message(self) -> Optional[str]:
+    def get_redirect_message(self) -> str | None:
         return getattr(self, "redirect_message", None)
 
     def get_redirect_url(self) -> str:
@@ -157,7 +157,7 @@ class RedirectIfNotFoundMixin(SingleObjectMixin):
         # Last resort:
         raise Http404
 
-    def redirect_with_message(self, exception: Optional[Http404] = None):
+    def redirect_with_message(self, exception: Http404 | None = None):
         message = self.get_redirect_message()
         if not message and exception is not None:
             message = str(exception)

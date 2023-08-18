@@ -3,7 +3,7 @@ Note: This module does not contain tests, hence its name is 'test' and not
 'tests'. It's for extending TestCase.
 """
 import json
-from typing import Any, List, Optional
+from typing import Any, List
 
 from django.core import mail
 from django.db.models import Model
@@ -12,7 +12,7 @@ from django.test import TestCase
 
 
 class ExtendedTestCase(TestCase):
-    def assertGetUrl(self, url: str, expected_url: Optional[str] = None):
+    def assertGetUrl(self, url: str, expected_url: str | None = None):
         """Assert GET request returns status < 400 and the given URL"""
         response = self.client.get(url, follow=True)
         self.assertLess(response.status_code, 400)
@@ -75,7 +75,7 @@ class ExtendedTestCase(TestCase):
         else:
             self.assertEqual(content, data)
 
-    def assertHasReceivedEmail(self, email: str, count: Optional[int] = None):
+    def assertHasReceivedEmail(self, email: str, count: int | None = None):
         """
         Assert that `count` number of emails have been sent to `email`, or
         that _any_ email has been sent to `email` in case `count` is None.

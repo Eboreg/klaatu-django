@@ -1,10 +1,10 @@
-from typing import Dict, Optional, Sequence, Tuple, Type, TypeVar, Union
+from typing import Dict, Sequence, Tuple, Type, TypeVar
 
 from django.forms import Form
 
-AdminFieldsType = Sequence[Union[str, Sequence[str]]]
+AdminFieldsType = Sequence[str | Sequence[str]]
 
-AdminFieldsetsType = Sequence[Tuple[Optional[str], Dict[str, Union[str, AdminFieldsType]]]]
+AdminFieldsetsType = Sequence[Tuple[str | None, Dict[str, str | AdminFieldsType]]]
 
 Form_co = TypeVar("Form_co", bound=Form)
 

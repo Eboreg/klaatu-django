@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Sequence, Type, Union
+from typing import TYPE_CHECKING, Sequence, Type, Union
 
 from django.contrib import admin
 from django.contrib.admin.options import InlineModelAdmin
@@ -65,7 +65,7 @@ class TabularManyToManyInline(admin.TabularInline):
 class RelatedLinkMixin:
     admin_site: AdminSite
 
-    def get_related_changeform_link(self, related_obj: Optional[Model], display_attr: Optional[str] = None):
+    def get_related_changeform_link(self, related_obj: Model | None, display_attr: str | None = None):
         """
         If `related_obj` is a model instance, and its model is registered with
         the AdminSite, return a link to the changeform for this instance.
@@ -99,7 +99,7 @@ class RelatedLinkMixin:
             )
         return related_obj
 
-    def get_related_changeform_link_list(self, related_queryset: QuerySet, display_attr: Optional[str] = None):
+    def get_related_changeform_link_list(self, related_queryset: QuerySet, display_attr: str | None = None):
         """
         Returns links to changeform for each item in `related_queryset`,
         separated by '<br />'. If queryset's model is not registered with the
@@ -141,11 +141,12 @@ class RelatedLinkMixin:
 
     def get_related_changelist_link(
         self,
-        obj: Optional[Model],
+        obj: Model | None,
         related_name: str,
-        proxy_model: Optional[Type[Model]] = None,
-        verbose_name: "Union[_StrPromise, str, None]" = None,
-        verbose_name_plural: "Union[_StrPromise, str, None]" = None
+        proxy_model: Type[Model] | None = None,
+        show_zero: bool = True,
+        verbose_name: Union["_StrPromise", str, None] = None,
+        verbose_name_plural: Union["_StrPromise", str, None] = None
     ):
         """
         `related_name` should be the name of a many-to-many or many-to-one
@@ -188,6 +189,9 @@ class RelatedLinkMixin:
                 verbose_name_plural = verbose_name_plural or related_model._meta.verbose_name_plural
                 obj_count = getattr(obj, related_name).count()
 
+                if not obj_count and not show_zero:
+                    return ""
+
                 return format_html(
                     '<a href="{}?{}__exact={}">{} {}</a>',
                     reverse(
@@ -221,26 +225,26 @@ class SeparateAddMixin(admin.ModelAdmin):
     `fieldsets`, `form`, `inlines`, and `readonly_fields` properties. If a
     property is None, the regular one will be used instead.
     """
-    add_exclude: Optional[Sequence[str]] = None
-    add_fields: Optional[AdminFieldsType] = None
-    add_fieldsets: Optional[AdminFieldsetsType] = None
-    add_form: Optional[FormType] = None
-    add_inlines: Optional[Sequence[Type[InlineModelAdmin]]] = None
-    add_readonly_fields: Optional[Sequence[str]] = None
+    add_exclude: Sequence[str] | None = None
+    add_fields: AdminFieldsType | None = None
+    add_fieldsets: AdminFieldsetsType | None = None
+    add_form: FormType | None = None
+    add_inlines: Sequence[Type[InlineModelAdmin]] | None = None
+    add_readonly_fields: Sequence[str] | None = None
 
-    def get_add_exclude(self, request: HttpRequest) -> Optional[Sequence[str]]:
+    def get_add_exclude(self, request: HttpRequest) -> Sequence[str] | None:
         return self.add_exclude
 
-    def get_add_fields(self, request: HttpRequest) -> Optional[AdminFieldsType]:
+    def get_add_fields(self, request: HttpRequest) -> AdminFieldsType | None:
         return self.add_fields
 
-    def get_add_fieldsets(self, request: HttpRequest) -> Optional[AdminFieldsetsType]:
+    def get_add_fieldsets(self, request: HttpRequest) -> AdminFieldsetsType | None:
         return self.add_fieldsets
 
-    def get_add_inlines(self, request: HttpRequest) -> Optional[Sequence[Type[InlineModelAdmin]]]:
+    def get_add_inlines(self, request: HttpRequest) -> Sequence[Type[InlineModelAdmin]] | None:
         return self.add_inlines
 
-    def get_add_readonly_fields(self, request: HttpRequest) -> Optional[Sequence[str]]:
+    def get_add_readonly_fields(self, request: HttpRequest) -> Sequence[str] | None:
         return self.add_readonly_fields
 
     def get_exclude(self, request, obj=None):

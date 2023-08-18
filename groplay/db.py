@@ -1,7 +1,7 @@
 import io
 import logging
 import pickle
-from typing import Optional, Tuple, Union
+from typing import Tuple
 
 from PIL import Image
 
@@ -30,7 +30,7 @@ def TrueIfAny(*args, **kwargs) -> Expression:
     return Case(When(conds, then=V(True)), default=V(False))
 
 
-def CorrectRound(field: Union[str, Combinable]) -> Expression:
+def CorrectRound(field: str | Combinable) -> Expression:
     """
     Correctly rounds a numeric field to int.
 
@@ -60,8 +60,8 @@ def PercentRounded(part: str, whole: str) -> Expression:
 
 class ResizeImageFieldFile(ImageFieldFile):
     """Resize large images, silently report error on fail"""
-    max_width: Optional[int]
-    max_height: Optional[int]
+    max_width: int | None
+    max_height: int | None
 
     def __init__(self, instance, field, name):
         self.max_height, self.max_width = field.max_height, field.max_width

@@ -2,7 +2,7 @@ import operator
 from abc import abstractmethod
 from enum import Enum, auto
 from pathlib import Path
-from typing import Collection, Generic, List, Tuple, TypeVar, Union
+from typing import Collection, Generic, List, Tuple, TypeVar
 
 from django.core.files.storage import FileSystemStorage as BaseFileSystemStorage, Storage
 
@@ -16,7 +16,7 @@ class SortKey(Enum):
 
 
 SortKeyWithOrder = Tuple[SortKey, bool]
-SortKeyArg = Collection[Union[SortKey, SortKeyWithOrder]]
+SortKeyArg = Collection[SortKey | SortKeyWithOrder]
 _T = TypeVar("_T", bound=object)
 
 
@@ -47,7 +47,7 @@ class SortableStorage(Storage, Generic[_T]):
         file: _T,
         nkeys: List[SortKeyWithOrder],
         reverse_all: bool
-    ) -> List[Union[str, int, float]]:
+    ) -> List[str | int | float]:
         raise NotImplementedError("SortableStorage subclasses must implement get_sort_value().")
 
     @abstractmethod
@@ -59,7 +59,7 @@ class SortableStorage(Storage, Generic[_T]):
 class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
     def get_sort_value(self, file, nkeys, reverse_all):
         stat = file.stat()
-        result: List[Union[str, int, float]] = []
+        result: List[str | int | float] = []
         for (key, reverse) in nkeys:
             reverse = operator.xor(reverse, reverse_all)
             multiplier = -1 if reverse else 1
@@ -78,7 +78,7 @@ class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
                 result.append(stat.st_mtime * multiplier)
         return result
 
-    def recurse(self, path: Union[Path, str], sort: SortKeyArg = []) -> List[Path]:
+    def recurse(self, path: Path | str, sort: SortKeyArg = []) -> List[Path]:
         """
         Recursively gets Path objects for files in `path`, ordered by `sort`.
         """
