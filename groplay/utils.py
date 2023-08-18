@@ -477,6 +477,12 @@ def getitem0_nullable(seq: Iterable[_T], cond: Callable[[_T], bool] | None = Non
     return getitem_nullable(seq, 0, cond)
 
 
+def getitem0(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T:
+    if cond is None:
+        cond = lambda _: True
+    return [item for item in seq if cond(item)][0]
+
+
 def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
     """Purely a testing function to be used in the CLI."""
     last_percent = 0
