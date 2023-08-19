@@ -1,6 +1,6 @@
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Iterable
+from typing import Any, Collection, Dict, Iterable
 from urllib.parse import urljoin
 
 from django import template
@@ -22,6 +22,7 @@ from groplay.utils import (
     capitalize,
     natural_and_list,
     natural_or_list,
+    percent_rounded,
     relativedelta_rounded,
     render_modal,
     timedelta_formatter,
@@ -577,3 +578,22 @@ def natural_and_list_filter(value: Iterable) -> str:
 @register.filter(name="natural_or_list")
 def natural_or_list_filter(value: Iterable) -> str:
     return natural_or_list(value)
+
+
+@register.filter
+def percent_of(part, whole) -> int:
+    """Rounded percentage. Usage: `{{ part|percent_of:whole }}%`"""
+    try:
+        if not isinstance(part, (int, float)):
+            part = int(part)
+        if not isinstance(whole, (int, float)):
+            whole = int(whole)
+        return percent_rounded(part, whole)
+    except ValueError:
+        return 0
+
+
+@register.filter
+def distinct(seq: Collection) -> list:
+    """Returns unique members of a collection."""
+    return list(set(seq))
