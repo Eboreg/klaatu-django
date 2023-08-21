@@ -34,32 +34,6 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
-def append_query_to_url(url: str, params: dict, conditional_params: dict | None = None, safe: str = '') -> str:
-    """
-    Adds GET query from `params` to `url`, or appends it if there already is
-    one.
-
-    `conditional_params` will only be used if GET params with those keys are
-    not already present in the original url or in `params`.
-
-    Return the new url.
-    """
-    parts = urlsplit(url)
-    conditional_params = conditional_params or {}
-    qs = {
-        **conditional_params,
-        **parse_qs(parts.query),
-        **params,
-    }
-    parts = parts._replace(query=urlencode(qs, doseq=True, safe=safe))
-    return urlunsplit(parts)
-
-
-def strip_url_query(url: str) -> str:
-    parts = urlsplit(url)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, '', parts.fragment))
-
-
 class CastToDuration(Cast):
     VALID_UNITS = [
         {'name': 'microsecond', 'plural': 'microseconds', 'multiplier': 1},
@@ -100,17 +74,6 @@ class CastToDuration(Cast):
         return super().as_sqlite(compiler, connection, template=template, **extra_context)
 
 
-def soupify(value: str | bytes) -> BeautifulSoup:
-    """
-    Background: BeautifulSoup wrongly guessed the encoding of API json
-    responses as latin-1, which lead to bastardized strings and much agony
-    until I finally found out why. Always run soup-creation through this!
-    """
-    if isinstance(value, bytes):
-        return BeautifulSoup(value, 'html.parser', from_encoding='utf-8')
-    return BeautifulSoup(value, 'html.parser')
-
-
 class ObjectJSONEncoder(DjangoJSONEncoder):
     """
     Somewhat enhanced JSON encoder, for when you want that sort of thing.
@@ -147,115 +110,96 @@ class FailSafeJSONEncoder(DjangoJSONEncoder):
             return str(e)
 
 
-def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
+class LockException(Exception):
+    ...
+
+
+class Lock:
+    """Does the same as `lock`, but as a context manager."""
+    def __init__(self, lockfile: str):
+        self.lockfile = lockfile
+
+    def __enter__(self):
+        if os.path.exists(self.lockfile):
+            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
+        with open(self.lockfile, "w") as f:
+            f.write("LOCKED")
+
+    def __exit__(self, *args, **kwargs):
+        remote_attempts = 0
+        while os.path.exists(self.lockfile) and remote_attempts < 10:
+            os.remove(self.lockfile)
+            remote_attempts += 1
+
+
+def append_query_to_url(url: str, params: dict, conditional_params: dict | None = None, safe: str = '') -> str:
     """
-    Very basic, but still arguably does a better job than `django-ipware`, as
-    that one doesn't take port numbers into account.
+    Adds GET query from `params` to `url`, or appends it if there already is
+    one.
 
-    For use with HttpRequest, send `request.META`.
+    `conditional_params` will only be used if GET params with those keys are
+    not already present in the original url or in `params`.
+
+    Return the new url.
     """
-    meta_keys = (
-        'HTTP_X_FORWARDED_FOR',
-        'X_FORWARDED_FOR',
-        'HTTP_CLIENT_IP',
-        'HTTP_X_REAL_IP',
-        'HTTP_X_FORWARDED',
-        'HTTP_X_CLUSTER_CLIENT_IP',
-        'HTTP_FORWARDED_FOR',
-        'HTTP_FORWARDED',
-        'HTTP_VIA',
-        'REMOTE_ADDR',
-    )
-    value = None
-    for key in meta_keys:
-        meta_value = meta_dict.get(key, None)
-        if isinstance(meta_value, str):
-            value = meta_value.split(':')[0]
-            if value:
-                break
-    return value
+    parts = urlsplit(url)
+    conditional_params = conditional_params or {}
+    qs = {
+        **conditional_params,
+        **parse_qs(parts.query),
+        **params,
+    }
+    parts = parts._replace(query=urlencode(qs, doseq=True, safe=safe))
+    return urlunsplit(parts)
 
 
-def relativedelta_rounded(dt1: datetime, dt2: datetime) -> relativedelta:
+def can_coerce_to_int(value: Any) -> bool:
+    return to_int(value) is not None
+
+
+def capitalize(string: "str | _StrPromise | None", language: str | None = None) -> str:
     """
-    Rounds to the nearest "time unit", using perhaps arbitrary algorithms.
+    Language-dependent word capitalization. For English, it capitalizes every
+    word except some hard-coded exceptions (the first and last word are always
+    capitalized, however). For all other languages, only the first word.
+
+    Side effect: Will replace multiple consecutive spaces with only one space.
+
+    @param language Optional, will use current session's language if not set.
     """
-    # First make sure both are naive OR aware:
-    if timezone.is_naive(dt1) and not timezone.is_naive(dt2):
-        dt1 = timezone.make_aware(dt1)
-    elif timezone.is_naive(dt2) and not timezone.is_naive(dt1):
-        dt2 = timezone.make_aware(dt2)
-    delta = relativedelta(dt1, dt2)
-    # >= 1 months or >= 25 days: return years + rounded months
-    if delta.years or delta.months or delta.days >= 25:
-        return relativedelta(years=delta.years, months=delta.months + round(delta.days / 30))
-    # 7 - 24 days: return rounded weeks
-    if delta.days >= 7:
-        return relativedelta(weeks=round(delta.days / 7))
-    # Dates are different: return that difference as number of days
-    if dt1.day != dt2.day:
-        return relativedelta(
-            datetime(dt1.year, dt1.month, dt1.day),
-            datetime(dt2.year, dt2.month, dt2.day)
-        )
-    # >= 1 hour: return rounded hours
-    if delta.hours:
-        return relativedelta(hours=delta.hours + round(delta.minutes / 60))
-    # >= 1 minute: return minutes (not rounded!)
-    if delta.minutes:
-        return relativedelta(minutes=delta.minutes)
-    # Don't bother with microseconds :P
-    return delta
+    language = language or get_language()
 
+    if string is None:
+        return ""
 
-def timedelta_formatter(
-    value: timedelta | float | int,
-    short_format: bool = False,
-    rounded: bool = False
-) -> str:
-    # If value is float or int, we suppose it's number of seconds:
-    if isinstance(value, (int, float)):
-        seconds = int(value)
+    if language == "en":
+        non_capped = ['a', 'an', 'and', 'but', 'for', 'from', 'if', 'nor', 'of', 'or', 'so', 'the']
+        words = string.split(" ")
+        for idx, word in enumerate(words):
+            if word and (idx == 0 or idx == len(words) - 1 or re.sub(r"\W", "", word).lower() not in non_capped):
+                words[idx] = word[0].upper() + word[1:]
+        return " ".join(words)
     else:
-        seconds = int(value.total_seconds())
-    hours = int(seconds / 3600)
-    seconds -= (hours * 3600)
-    minutes = int(seconds / 60)
-    seconds -= (minutes * 60)
-    if rounded:
-        if minutes > 30:
-            hours += 1
-        if seconds > 30:
-            minutes += 1
-    if short_format:
-        time_str = ""
-        if hours:
-            time_str += "{}h".format(hours)
-        if minutes and (not rounded or not hours):
-            time_str += "{}m".format(minutes)
-        if seconds and (not rounded or (not hours and not minutes)):
-            time_str += "{}s".format(seconds)
-        return time_str or "0s"
-    else:
-        time_list = []
-        if hours:
-            time_list.append(ngettext("%(hours)d hour", "%(hours)d hours", hours) % {"hours": hours})
-        if minutes and (not rounded or not hours):
-            time_list.append(ngettext("%(min)d min", "%(min)d min", minutes) % {"min": minutes})
-        if seconds and (not rounded or (not hours and not minutes)):
-            time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
-        return ", ".join(time_list)
+        return string.capitalize()
+
+
+def circulate(lst: list | tuple, rounds: int) -> list:
+    """
+    Shifts `lst` left `rounds` times. Good for e.g. circulating colours in
+    a graph.
+    """
+    if isinstance(lst, tuple):
+        lst = list(lst)
+    if lst and rounds:
+        for i in range(rounds):
+            val = lst.pop(0)
+            lst.append(val)
+    return lst
 
 
 def daterange(start_date: date, end_date: date) -> Iterator[date]:
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(days=n)
-
-
-def percent_rounded(part: int | float, whole: int | float) -> int:
-    if not whole:
-        return 0
-    return round(part / whole * 100)
 
 
 def extract_views_from_urlpatterns(
@@ -330,121 +274,33 @@ def extract_views_from_urlpatterns(
     }
 
 
-def round_to_n(x: int | float, n: int) -> SupportsFloat:
+def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
     """
-    Rounds x to n significant digits, except if the result is a whole number
-    it is cast to int
+    Very basic, but still arguably does a better job than `django-ipware`, as
+    that one doesn't take port numbers into account.
+
+    For use with HttpRequest, send `request.META`.
     """
-    if x == 0:
-        return x
-    else:
-        result = round(x, -int(floor(log10(abs(x)))) + (n - 1))
-        return int(result) if not result % 1 else result
-
-
-def rounded_percentage(part: int | float, whole: int | float) -> SupportsFloat:
-    """Percentage rounded to 3 significant digits"""
-    return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
-
-
-def round_up_timedelta(td: timedelta) -> timedelta:
-    """
-    If td > 30 min, round up to nearest hour. Otherwise, to nearest 10
-    minute mark. Could be extended for higher time units, but nevermind now.
-    """
-    td_minutes = td.total_seconds() / 60
-    if td_minutes > 30:
-        return timedelta(hours=ceil(td_minutes / 60))
-    if td_minutes >= 10:
-        return timedelta(minutes=int(td_minutes / 10) * 10 + 10)
-    return timedelta(minutes=10)
-
-
-def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
-    """
-    Pretty formatter that outputs stuff the way I want it, no more, no less
-    """
-    def format_value(v: Any) -> str:
-        return f"'{v}'" if isinstance(v, str) else repr(v)
-
-    def is_scalar(v: Any) -> bool:
-        return isinstance(v, str) or not isinstance(v, Iterable)
-
-    if isinstance(obj, dict):
-        ret = "{"
-        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(list(obj.values())[0]))
-        if len(obj) > 0:
-            if multiline:
-                ret += "\n"
-            for key, value in obj.items():
-                if multiline:
-                    ret += " " * (current_depth * indent + indent)
-                ret += format_value(key) + ": "
-                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
-                if multiline:
-                    ret += ",\n"
-            if multiline:
-                ret += " " * (current_depth * indent)
-        ret += "}"
-    elif isinstance(obj, (list, QuerySet)):  # type: ignore
-        ret = "["
-        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(obj[0]))
-        if len(obj) > 0:
-            if multiline:
-                ret += "\n"
-            for value in obj:
-                if multiline:
-                    ret += " " * (current_depth * indent + indent)
-                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
-                if multiline:
-                    ret += ",\n"
-            if multiline:
-                ret += " " * (current_depth * indent)
-        ret += "]"
-    else:
-        ret = format_value(obj)
-
-    return ret
-
-
-def int_to_string(value: int | None, language: str, nbsp: bool = False) -> str:
-    # Format integer with correct thousand separators
-    if value is None:
-        return ""
-    if language == "sv":
-        # We probably should be checking for locale rather than language, but
-        # whatever
-        separator = " "
-    else:
-        separator = "."
-    if separator == " " and nbsp:
-        separator = "&nbsp;"
-    # Neat line of code, huh? :)
-    # 1. Use absolute value to get rid of minus sign
-    # 2. Reverse str(value) in order to group characters from the end
-    # 3. Split it by groups of 3 digits
-    # 4. Remove empty values generated by re.split()
-    # 5. Re-reverse the digits in each group & join them with separator string
-    # 6. Re-reverse the order of the groups
-    # 7. Add minus sign if value was negative
-    return (
-        ("-" if value < 0 else "") +
-        separator.join([v[::-1] for v in re.split(r"(\d{3})", str(abs(value))[::-1]) if v][::-1])
+    meta_keys = (
+        'HTTP_X_FORWARDED_FOR',
+        'X_FORWARDED_FOR',
+        'HTTP_CLIENT_IP',
+        'HTTP_X_REAL_IP',
+        'HTTP_X_FORWARDED',
+        'HTTP_X_CLUSTER_CLIENT_IP',
+        'HTTP_FORWARDED_FOR',
+        'HTTP_FORWARDED',
+        'HTTP_VIA',
+        'REMOTE_ADDR',
     )
-
-
-def circulate(lst: list | tuple, rounds: int) -> list:
-    """
-    Shifts `lst` left `rounds` times. Good for e.g. circulating colours in
-    a graph.
-    """
-    if isinstance(lst, tuple):
-        lst = list(lst)
-    if lst and rounds:
-        for i in range(rounds):
-            val = lst.pop(0)
-            lst.append(val)
-    return lst
+    value = None
+    for key in meta_keys:
+        meta_value = meta_dict.get(key, None)
+        if isinstance(meta_value, str):
+            value = meta_value.split(':')[0]
+            if value:
+                break
+    return value
 
 
 def getitem_nullable(seq: Iterable[_T], idx: int, cond: Callable[[_T], bool] | None = None) -> _T | None:
@@ -473,45 +329,91 @@ def getitem_nullable(seq: Iterable[_T], idx: int, cond: Callable[[_T], bool] | N
         return None
 
 
-def getitem0_nullable(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T | None:
-    return getitem_nullable(seq, 0, cond)
-
-
 def getitem0(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T:
     if cond is None:
         cond = lambda _: True
     return [item for item in seq if cond(item)][0]
 
 
-def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
-    """Purely a testing function to be used in the CLI."""
-    last_percent = 0
-    measurements = []
+def getitem0_nullable(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T | None:
+    return getitem_nullable(seq, 0, cond)
 
-    for i in range(iterations):
-        start_time = time.time()
-        for queryset in querysets:
-            list(copy.deepcopy(queryset))
-        elapsed_time = time.time() - start_time
-        measurements.append(elapsed_time)
-        if quiet:
-            percent = int((i + 1) / iterations * 100)
-            if not percent % 10 and percent != last_percent:
-                last_percent = percent
-                output = f"{percent}%"
-                if percent == 100:
-                    print(output)
-                else:
-                    print(output, end=" ... ", flush=True)
+
+def group_by(sequence: Sequence[_T], pred: Callable[[_T], Any]) -> Dict[Any, List[_T]]:
+    """
+    Groups `sequence` by the result of `pred` on each item. Returns dict with
+    those results as keys and sublists of `sequence` as values.
+    """
+    result = {}
+    for item in sequence:
+        key = pred(item)
+        if key not in result:
+            result[key] = [item]
         else:
-            print(f"[{i + 1}/{iterations}: {elapsed_time}")
-
-    print(f"Mean:   {mean(measurements)}")
-    print(f"Median: {median(measurements)}")
+            result[key].append(item)
+    return result
 
 
-class LockException(Exception):
-    ...
+def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
+    """
+    Tries to return the index of the first item in `sequence` for which the
+    function `pred` returns True. If no such item is found, return -1.
+    """
+    try:
+        return sequence.index(next(filter(pred, sequence)))
+    except StopIteration:
+        return -1
+
+
+def int_to_string(value: int | None, language: str, nbsp: bool = False) -> str:
+    # Format integer with correct thousand separators
+    if value is None:
+        return ""
+    if language == "sv":
+        # We probably should be checking for locale rather than language, but
+        # whatever
+        separator = " "
+    else:
+        separator = "."
+    if separator == " " and nbsp:
+        separator = "&nbsp;"
+    # Neat line of code, huh? :)
+    # 1. Use absolute value to get rid of minus sign
+    # 2. Reverse str(value) in order to group characters from the end
+    # 3. Split it by groups of 3 digits
+    # 4. Remove empty values generated by re.split()
+    # 5. Re-reverse the digits in each group & join them with separator string
+    # 6. Re-reverse the order of the groups
+    # 7. Add minus sign if value was negative
+    return (
+        ("-" if value < 0 else "") +
+        separator.join([v[::-1] for v in re.split(r"(\d{3})", str(abs(value))[::-1]) if v][::-1])
+    )
+
+
+def is_truthy(value: Any) -> bool:
+    """
+    Basically does `bool(value)`, except it also returns False for string
+    values "false", "no", and "0" (case insensitive).
+    """
+    if isinstance(value, str) and value.lower() in ("false", "no", "0"):
+        return False
+    return bool(value)
+
+
+def is_url_name(value: str) -> bool:
+    """
+    Really just a guess, based on a somewhat consistent naming of Django URLs.
+    """
+    return bool(re.match(r"^[a-zA-Z0-9_\-:]+$", value))
+
+
+def is_valid_email(value: Any) -> bool:
+    try:
+        validate_email(value)
+    except (ValidationError, TypeError):
+        return False
+    return True
 
 
 def lock(lockfile: str):
@@ -539,104 +441,8 @@ def lock(lockfile: str):
     return decorator
 
 
-class Lock:
-    """Does the same as `lock`, but as a context manager."""
-    def __init__(self, lockfile: str):
-        self.lockfile = lockfile
-
-    def __enter__(self):
-        if os.path.exists(self.lockfile):
-            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
-        with open(self.lockfile, "w") as f:
-            f.write("LOCKED")
-
-    def __exit__(self, *args, **kwargs):
-        remote_attempts = 0
-        while os.path.exists(self.lockfile) and remote_attempts < 10:
-            os.remove(self.lockfile)
-            remote_attempts += 1
-
-
-def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
-    """
-    Tries to return the index of the first item in `sequence` for which the
-    function `pred` returns True. If no such item is found, return -1.
-    """
-    try:
-        return sequence.index(next(filter(pred, sequence)))
-    except StopIteration:
-        return -1
-
-
-def group_by(sequence: Sequence[_T], pred: Callable[[_T], Any]) -> Dict[Any, List[_T]]:
-    """
-    Groups `sequence` by the result of `pred` on each item. Returns dict with
-    those results as keys and sublists of `sequence` as values.
-    """
-    result = {}
-    for item in sequence:
-        key = pred(item)
-        if key not in result:
-            result[key] = [item]
-        else:
-            result[key].append(item)
-    return result
-
-
-def is_truthy(value: Any) -> bool:
-    """
-    Basically does `bool(value)`, except it also returns False for string
-    values "false", "no", and "0" (case insensitive).
-    """
-    if isinstance(value, str) and value.lower() in ("false", "no", "0"):
-        return False
-    return bool(value)
-
-
-def is_valid_email(value: Any) -> bool:
-    try:
-        validate_email(value)
-    except (ValidationError, TypeError):
-        return False
-    return True
-
-
-def to_int(value: Any, default: int | None = None) -> int | None:
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
-
-
-def capitalize(string: "str | _StrPromise | None", language: str | None = None) -> str:
-    """
-    Language-dependent word capitalization. For English, it capitalizes every
-    word except some hard-coded exceptions (the first and last word are always
-    capitalized, however). For all other languages, only the first word.
-
-    Side effect: Will replace multiple consecutive spaces with only one space.
-
-    @param language Optional, will use current session's language if not set.
-    """
-    language = language or get_language()
-
-    if string is None:
-        return ""
-
-    if language == "en":
-        non_capped = ['a', 'an', 'and', 'but', 'for', 'from', 'if', 'nor', 'of', 'or', 'so', 'the']
-        words = string.split(" ")
-        for idx, word in enumerate(words):
-            if word and (idx == 0 or idx == len(words) - 1 or re.sub(r"\W", "", word).lower() not in non_capped):
-                words[idx] = word[0].upper() + word[1:]
-        return " ".join(words)
-    else:
-        return string.capitalize()
-
-
-def nonulls(sequence: Sequence[_T | None]) -> List[_T]:
-    """Just filters away None values from `sequence`."""
-    return [item for item in sequence if item is not None]
+def natural_and_list(items: Iterable, enclose_items_in_tag="") -> str:
+    return natural_list(items, enclose_items_in_tag=enclose_items_in_tag)
 
 
 def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -> str:
@@ -673,12 +479,51 @@ def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -
     return _("%(list)s, and %(last_item)s") % vars
 
 
-def natural_and_list(items: Iterable, enclose_items_in_tag="") -> str:
-    return natural_list(items, enclose_items_in_tag=enclose_items_in_tag)
-
-
 def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:
     return natural_list(items, or_separated=True, enclose_items_in_tag=enclose_items_in_tag)
+
+
+def nonulls(items: Iterable[_T | None]) -> List[_T]:
+    """Just filters away None values from `items`."""
+    return [item for item in items if item is not None]
+
+
+def percent_rounded(part: int | float, whole: int | float) -> int:
+    if not whole:
+        return 0
+    return round(part / whole * 100)
+
+
+def relativedelta_rounded(dt1: datetime, dt2: datetime) -> relativedelta:
+    """
+    Rounds to the nearest "time unit", using perhaps arbitrary algorithms.
+    """
+    # First make sure both are naive OR aware:
+    if timezone.is_naive(dt1) and not timezone.is_naive(dt2):
+        dt1 = timezone.make_aware(dt1)
+    elif timezone.is_naive(dt2) and not timezone.is_naive(dt1):
+        dt2 = timezone.make_aware(dt2)
+    delta = relativedelta(dt1, dt2)
+    # >= 1 months or >= 25 days: return years + rounded months
+    if delta.years or delta.months or delta.days >= 25:
+        return relativedelta(years=delta.years, months=delta.months + round(delta.days / 30))
+    # 7 - 24 days: return rounded weeks
+    if delta.days >= 7:
+        return relativedelta(weeks=round(delta.days / 7))
+    # Dates are different: return that difference as number of days
+    if dt1.day != dt2.day:
+        return relativedelta(
+            datetime(dt1.year, dt1.month, dt1.day),
+            datetime(dt2.year, dt2.month, dt2.day)
+        )
+    # >= 1 hour: return rounded hours
+    if delta.hours:
+        return relativedelta(hours=delta.hours + round(delta.minutes / 60))
+    # >= 1 minute: return minutes (not rounded!)
+    if delta.minutes:
+        return relativedelta(minutes=delta.minutes)
+    # Don't bother with microseconds :P
+    return delta
 
 
 def render_modal(
@@ -732,12 +577,167 @@ def render_modal(
     return mark_safe(render_to_string(template_name=template_name, context=context, request=request))
 
 
-def can_coerce_to_int(value: Any) -> bool:
-    return to_int(value) is not None
+def round_to_n(x: int | float, n: int) -> SupportsFloat:
+    """
+    Rounds x to n significant digits, except if the result is a whole number
+    it is cast to int
+    """
+    if x == 0:
+        return x
+    else:
+        result = round(x, -int(floor(log10(abs(x)))) + (n - 1))
+        return int(result) if not result % 1 else result
 
 
-def is_url_name(value: str) -> bool:
+def round_up_timedelta(td: timedelta) -> timedelta:
     """
-    Really just a guess, based on a somewhat consistent naming of Django URLs.
+    If td > 30 min, round up to nearest hour. Otherwise, to nearest 10
+    minute mark. Could be extended for higher time units, but nevermind now.
     """
-    return bool(re.match(r"^[a-zA-Z0-9_\-:]+$", value))
+    td_minutes = td.total_seconds() / 60
+    if td_minutes > 30:
+        return timedelta(hours=ceil(td_minutes / 60))
+    if td_minutes >= 10:
+        return timedelta(minutes=int(td_minutes / 10) * 10 + 10)
+    return timedelta(minutes=10)
+
+
+def rounded_percentage(part: int | float, whole: int | float) -> SupportsFloat:
+    """Percentage rounded to 3 significant digits"""
+    return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
+
+
+def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
+    """
+    Pretty formatter that outputs stuff the way I want it, no more, no less
+    """
+    def format_value(v: Any) -> str:
+        return f"'{v}'" if isinstance(v, str) else repr(v)
+
+    def is_scalar(v: Any) -> bool:
+        return isinstance(v, str) or not isinstance(v, Iterable)
+
+    if isinstance(obj, dict):
+        ret = "{"
+        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(list(obj.values())[0]))
+        if len(obj) > 0:
+            if multiline:
+                ret += "\n"
+            for key, value in obj.items():
+                if multiline:
+                    ret += " " * (current_depth * indent + indent)
+                ret += format_value(key) + ": "
+                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
+                if multiline:
+                    ret += ",\n"
+            if multiline:
+                ret += " " * (current_depth * indent)
+        ret += "}"
+    elif isinstance(obj, (list, QuerySet)):  # type: ignore
+        ret = "["
+        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(obj[0]))
+        if len(obj) > 0:
+            if multiline:
+                ret += "\n"
+            for value in obj:
+                if multiline:
+                    ret += " " * (current_depth * indent + indent)
+                ret += simple_pformat(value, indent=indent, current_depth=current_depth + 1)
+                if multiline:
+                    ret += ",\n"
+            if multiline:
+                ret += " " * (current_depth * indent)
+        ret += "]"
+    else:
+        ret = format_value(obj)
+
+    return ret
+
+
+def soupify(value: str | bytes) -> BeautifulSoup:
+    """
+    Background: BeautifulSoup wrongly guessed the encoding of API json
+    responses as latin-1, which lead to bastardized strings and much agony
+    until I finally found out why. Always run soup-creation through this!
+    """
+    if isinstance(value, bytes):
+        return BeautifulSoup(value, 'html.parser', from_encoding='utf-8')
+    return BeautifulSoup(value, 'html.parser')
+
+
+def strip_url_query(url: str) -> str:
+    parts = urlsplit(url)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, '', parts.fragment))
+
+
+def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
+    """Purely a testing function to be used in the CLI."""
+    last_percent = 0
+    measurements = []
+
+    for i in range(iterations):
+        start_time = time.time()
+        for queryset in querysets:
+            list(copy.deepcopy(queryset))
+        elapsed_time = time.time() - start_time
+        measurements.append(elapsed_time)
+        if quiet:
+            percent = int((i + 1) / iterations * 100)
+            if not percent % 10 and percent != last_percent:
+                last_percent = percent
+                output = f"{percent}%"
+                if percent == 100:
+                    print(output)
+                else:
+                    print(output, end=" ... ", flush=True)
+        else:
+            print(f"[{i + 1}/{iterations}: {elapsed_time}")
+
+    print(f"Mean:   {mean(measurements)}")
+    print(f"Median: {median(measurements)}")
+
+
+def timedelta_formatter(
+    value: timedelta | float | int,
+    short_format: bool = False,
+    rounded: bool = False
+) -> str:
+    # If value is float or int, we suppose it's number of seconds:
+    if isinstance(value, (int, float)):
+        seconds = int(value)
+    else:
+        seconds = int(value.total_seconds())
+    hours = int(seconds / 3600)
+    seconds -= (hours * 3600)
+    minutes = int(seconds / 60)
+    seconds -= (minutes * 60)
+    if rounded:
+        if minutes > 30:
+            hours += 1
+        if seconds > 30:
+            minutes += 1
+    if short_format:
+        time_str = ""
+        if hours:
+            time_str += "{}h".format(hours)
+        if minutes and (not rounded or not hours):
+            time_str += "{}m".format(minutes)
+        if seconds and (not rounded or (not hours and not minutes)):
+            time_str += "{}s".format(seconds)
+        return time_str or "0s"
+    else:
+        time_list = []
+        if hours:
+            time_list.append(ngettext("%(hours)d hour", "%(hours)d hours", hours) % {"hours": hours})
+        if minutes and (not rounded or not hours):
+            time_list.append(ngettext("%(min)d min", "%(min)d min", minutes) % {"min": minutes})
+        if seconds and (not rounded or (not hours and not minutes)):
+            time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
+        return ", ".join(time_list)
+
+
+def to_int(value: Any, default: int | None = None) -> int | None:
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
