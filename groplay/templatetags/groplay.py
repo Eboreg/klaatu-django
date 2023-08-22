@@ -31,6 +31,67 @@ from groplay.utils import (
 register = template.Library()
 
 
+class EmailSection(template.Node):
+    def __init__(self, nodelist: template.NodeList, **kwargs: template.base.FilterExpression):
+        self.nodelist = nodelist
+        self.kwargs = kwargs
+
+    def render(self, context: template.Context) -> str:
+        table_kwargs = {
+            "role": "presentation",
+            "class": "section",
+            "cellspacing": "0",
+            "cellpadding": "0",
+        }
+        table_args = ["%s=\"%s\"" % (k, v) for k, v in table_kwargs.items()]
+        td_args = []
+        for name, value in self.kwargs.items():
+            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))
+        return "<table %s><tr><td %s>%s</td></tr></table>" % (
+            " ".join(table_args),
+            " ".join(td_args),
+            self.nodelist.render(context)
+        )
+
+
+class LinkNode(template.Node):
+    def __init__(
+        self,
+        nodelist: template.NodeList,
+        href: template.base.FilterExpression,
+        **kwargs: template.base.FilterExpression,
+    ):
+        self.nodelist = nodelist
+        self.href = href
+        self.kwargs = kwargs
+
+    def render(self, context: Context):
+        href = self.href.resolve(context, ignore_failures=True)
+        kwargs = {
+            key.replace("_", "-"): value.resolve(context, ignore_failures=True)
+            for key, value in self.kwargs.items()
+        }
+        root_url = getattr(settings, "ROOT_URL", "")
+        if root_url and isinstance(href, str):
+            is_external = bool(re.match("^https?://", href)) and not href.startswith(root_url)
+        else:
+            is_external = False
+        if is_external:
+            if "rel" in kwargs:
+                if "external" not in kwargs["rel"].split(" "):
+                    kwargs["rel"] += " external"
+            else:
+                kwargs["rel"] = "external"
+
+        return format_html(
+            '<a href="{}"{}{}>{}</a>',
+            href,
+            mark_safe(' target="_blank"') if is_external else " ",
+            mark_safe("".join([f' {key}="{value}"' for key, value in kwargs.items()])),
+            self.nodelist.render(context),
+        )
+
+
 class NaturalTimeShortFormatterMeta(type):
     def __new__(cls, name, bases, dct):
         """
@@ -94,120 +155,39 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
         return super().string_for(then)
 
 
-class EmailSection(template.Node):
-    def __init__(self, nodelist: template.NodeList, **kwargs: template.base.FilterExpression):
-        self.nodelist = nodelist
-        self.kwargs = kwargs
-
-    def render(self, context: template.Context) -> str:
-        table_kwargs = {
-            "role": "presentation",
-            "class": "section",
-            "cellspacing": "0",
-            "cellpadding": "0",
-        }
-        table_args = ["%s=\"%s\"" % (k, v) for k, v in table_kwargs.items()]
-        td_args = []
-        for name, value in self.kwargs.items():
-            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))
-        return "<table %s><tr><td %s>%s</td></tr></table>" % (
-            " ".join(table_args),
-            " ".join(td_args),
-            self.nodelist.render(context)
-        )
-
-
 ### TAGS ##################################
 
-@register.tag(name="section")
-def email_section(parser: template.base.Parser, token: template.base.Token):
+@register.tag(name="link")
+def do_link(parser: template.base.Parser, token: template.base.Token):
     """
-    Injects the tag's contents into a <table> with one row and one cell,
-    roughly mimicking a <div>. This is because email clients are retarded and
-    can't handle normal HTML.
+    Outputs an <a> tag. The only purpose of this is to automatically inject
+    `target="_blank"` and `rel="external"` if it's an external link, so
+    there's a good argument for this being overkill. But I learned stuff from
+    writing it, and that's never a waste.
 
-    The <table> tag will have class="section"; it is up to the implementation
-    to provide such a class. The element is probably best suited for
-    graphically "top level" sections, and the class should therefore specify
-    "max-width: 600px" or whichever container width you go for. Any kwargs
-    will be used for attributes on the lone <td> tag.
+    Has one required positional argument, which is the link URL. This can be a
+    raw string or a template variable. Keyword arguments will be used as
+    attributes on the <a> element, with underscores replaced by dashes in the
+    keys.
 
-    Example:
+    Usage:
+    {% link "https://external-link.com" data_foo="bar" %}
+    <p>This is my link</p>
+    {% endlink %}
 
-    {% section class="py-3" style="text-align: center" %}
-        <p>Hey ho!</p>
-    {% endsection %}
-
-    ... will result in:
-
-    <table class="section">
-        <tr>
-            <td class="py-3" style="text-align: center">
-                <p>Hey ho!</p>
-            </td>
-        </tr>
-    </table>
+    Output:
+    <a href="https://external-link.com" target="_blank" data-foo="bar">
+        <p>This is my link</p>
+    </a>
     """
-    bits = token.split_contents()[1:]
-    kwargs = {}
-    for bit in bits:
-        match = template.base.kwarg_re.match(bit)
-        if match:
-            name, value = match.groups()
-            kwargs[name] = parser.compile_filter(value)
-    nodelist = parser.parse(("endsection",))
+    bits = token.split_contents()
+    if len(bits) < 2:
+        raise template.TemplateSyntaxError("'link' template tags must contain a URL.")
+    href = parser.compile_filter(bits[1])
+    kwargs = token_kwargs(bits[2:], parser)
+    nodelist = parser.parse(("endlink",))
     parser.delete_first_token()
-    return EmailSection(nodelist, **kwargs)
-
-
-@register.simple_tag
-def join_query_params(request: HttpRequest, **kwargs) -> str:
-    """
-    Will coerce the new QueryDict to only contain one value for each key,
-    with priority to those in kwargs.
-    """
-    params = {k: v for k, v in request.GET.dict().items() if not isinstance(v, list)}
-    params.update(kwargs)
-    querydict = QueryDict(mutable=True)
-    querydict.update(params)
-    return request.path_info + '?' + querydict.urlencode()
-
-
-@register.simple_tag(name='urljoin')
-def urljoin_tag(base, url) -> str:
-    return urljoin(base, url)
-
-
-@register.simple_tag(takes_context=True)
-def modal(
-    context: template.RequestContext,
-    template_name: str,
-    modal_id="",
-    classes="",
-    required_params="",
-    optional_params="",
-    footer=True,
-    large=False,
-    scrollable=False,
-    center=False,
-    **kwargs
-) -> str:
-    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
-    render_context.update(kwargs)
-
-    return render_modal(
-        template_name=template_name,
-        request=context.request,
-        modal_id=modal_id,
-        classes=classes,
-        required_params=required_params,
-        optional_params=optional_params,
-        footer=footer,
-        large=large,
-        scrollable=scrollable,
-        center=center,
-        context=render_context,
-    )
+    return LinkNode(nodelist, href, **kwargs)
 
 
 @register.inclusion_tag("groplay/modals/dynamic.html")
@@ -269,6 +249,105 @@ def dynamic_modal(
     }
 
 
+@register.tag(name="section")
+def email_section(parser: template.base.Parser, token: template.base.Token):
+    """
+    Injects the tag's contents into a <table> with one row and one cell,
+    roughly mimicking a <div>. This is because email clients are retarded and
+    can't handle normal HTML.
+
+    The <table> tag will have class="section"; it is up to the implementation
+    to provide such a class. The element is probably best suited for
+    graphically "top level" sections, and the class should therefore specify
+    "max-width: 600px" or whichever container width you go for. Any kwargs
+    will be used for attributes on the lone <td> tag.
+
+    Example:
+
+    {% section class="py-3" style="text-align: center" %}
+        <p>Hey ho!</p>
+    {% endsection %}
+
+    ... will result in:
+
+    <table class="section">
+        <tr>
+            <td class="py-3" style="text-align: center">
+                <p>Hey ho!</p>
+            </td>
+        </tr>
+    </table>
+    """
+    bits = token.split_contents()[1:]
+    kwargs = {}
+    for bit in bits:
+        match = template.base.kwarg_re.match(bit)
+        if match:
+            name, value = match.groups()
+            kwargs[name] = parser.compile_filter(value)
+    nodelist = parser.parse(("endsection",))
+    parser.delete_first_token()
+    return EmailSection(nodelist, **kwargs)
+
+
+@register.simple_tag
+def join_query_params(request: HttpRequest, **kwargs) -> str:
+    """
+    Will coerce the new QueryDict to only contain one value for each key,
+    with priority to those in kwargs.
+    """
+    params = {k: v for k, v in request.GET.dict().items() if not isinstance(v, list)}
+    params.update(kwargs)
+    querydict = QueryDict(mutable=True)
+    querydict.update(params)
+    return request.path_info + '?' + querydict.urlencode()
+
+
+@register.simple_tag(takes_context=True)
+def map_to_context(context: template.RequestContext, key: str):
+    """
+    Tries to get value from current context, both with key as-is and with
+    dashes switched to underscores.
+    """
+    if key in context:
+        return context[key]
+    if "-" in key:
+        return context.get(key.replace("-", "_"), "")
+    return ""
+
+
+@register.simple_tag(takes_context=True)
+def modal(
+    context: template.RequestContext,
+    template_name: str,
+    modal_id="",
+    classes="",
+    required_params="",
+    optional_params="",
+    footer=True,
+    large=False,
+    scrollable=False,
+    center=False,
+    **kwargs
+) -> str:
+    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
+    render_context.update(kwargs)
+
+    return render_modal(
+        template_name=template_name,
+        request=context.request,
+        modal_id=modal_id,
+        classes=classes,
+        required_params=required_params,
+        optional_params=optional_params,
+        footer=footer,
+        large=large,
+        scrollable=scrollable,
+        center=center,
+        context=render_context,
+    )
+
+
 @register.inclusion_tag("groplay/preloader.html")
 def preloader(
     id: str | None = None,
@@ -306,101 +385,177 @@ def preloader(
     }
 
 
-@register.simple_tag(takes_context=True)
-def map_to_context(context: template.RequestContext, key: str):
-    """
-    Tries to get value from current context, both with key as-is and with
-    dashes switched to underscores.
-    """
-    if key in context:
-        return context[key]
-    if "-" in key:
-        return context.get(key.replace("-", "_"), "")
-    return ""
-
-
 @register.simple_tag
 def static_full_uri(value: str) -> str:
     root_url = getattr(settings, "ROOT_URL", "")
     return urljoin(root_url, static(value))
 
 
-class LinkNode(template.Node):
-    def __init__(
-        self,
-        nodelist: template.NodeList,
-        href: template.base.FilterExpression,
-        **kwargs: template.base.FilterExpression,
-    ):
-        self.nodelist = nodelist
-        self.href = href
-        self.kwargs = kwargs
-
-    def render(self, context: Context):
-        href = self.href.resolve(context, ignore_failures=True)
-        kwargs = {
-            key.replace("_", "-"): value.resolve(context, ignore_failures=True)
-            for key, value in self.kwargs.items()
-        }
-        root_url = getattr(settings, "ROOT_URL", "")
-        if root_url and isinstance(href, str):
-            is_external = bool(re.match("^https?://", href)) and not href.startswith(root_url)
-        else:
-            is_external = False
-        if is_external:
-            if "rel" in kwargs:
-                if "external" not in kwargs["rel"].split(" "):
-                    kwargs["rel"] += " external"
-            else:
-                kwargs["rel"] = "external"
-
-        return format_html(
-            '<a href="{}"{}{}>{}</a>',
-            href,
-            mark_safe(' target="_blank"') if is_external else " ",
-            mark_safe("".join([f' {key}="{value}"' for key, value in kwargs.items()])),
-            self.nodelist.render(context),
-        )
-
-
-@register.tag(name="link")
-def do_link(parser: template.base.Parser, token: template.base.Token):
-    """
-    Outputs an <a> tag. The only purpose of this is to automatically inject
-    `target="_blank"` and `rel="external"` if it's an external link, so
-    there's a good argument for this being overkill. But I learned stuff from
-    writing it, and that's never a waste.
-
-    Has one required positional argument, which is the link URL. This can be a
-    raw string or a template variable. Keyword arguments will be used as
-    attributes on the <a> element, with underscores replaced by dashes in the
-    keys.
-
-    Usage:
-    {% link "https://external-link.com" data_foo="bar" %}
-    <p>This is my link</p>
-    {% endlink %}
-
-    Output:
-    <a href="https://external-link.com" target="_blank" data-foo="bar">
-        <p>This is my link</p>
-    </a>
-    """
-    bits = token.split_contents()
-    if len(bits) < 2:
-        raise template.TemplateSyntaxError("'link' template tags must contain a URL.")
-    href = parser.compile_filter(bits[1])
-    kwargs = token_kwargs(bits[2:], parser)
-    nodelist = parser.parse(("endlink",))
-    parser.delete_first_token()
-    return LinkNode(nodelist, href, **kwargs)
+@register.simple_tag(name='urljoin')
+def urljoin_tag(base, url) -> str:
+    return urljoin(base, url)
 
 
 ### FILTERS ###############################
 
+@register.filter(name="abs")
+def abs_value(value) -> int | None:
+    """
+    Simply returns the absolute value of `value`, or None if it cannot be
+    coerced to integer.
+    """
+    try:
+        return abs(int(value))
+    except TypeError:
+        return None
+
+
+@register.filter
+def add_str(value, arg) -> str:
+    return str(value) + str(arg)
+
+
+@register.filter
+def admin_boolean_icon(value: bool) -> str:
+    """
+    Taken from django.contrib.admin.templatetags.admin_list._boolean_icon(),
+    which is probably considered "internal", so I copied its code instead.
+    """
+    icon_url = static('admin/img/icon-%s.svg' % {True: 'yes', False: 'no', None: 'unknown'}[value])
+    return format_html('<img src="{}" alt="{}">', icon_url, value)
+
+
+@register.filter(name="capitalize")
+@stringfilter
+def capitalize_string(value: str) -> str:
+    return capitalize(value)
+
+
+@register.filter
+def delta_days(value) -> int | None:
+    """
+    Return number of days between now and `value`. Positive = future.
+    `value` may be a date or datetime object, or a string which can be parsed
+    with datetime.fromisoformat().
+    """
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            pass
+    if isinstance(value, datetime):
+        value = value.date()
+    if isinstance(value, date):
+        return (value - timezone.localdate()).days
+    return None
+
+
+@register.filter
+def distinct(seq: Collection) -> list:
+    """Returns unique members of a collection."""
+    return list(set(seq))
+
+
+@register.filter
+def divide_by(value, arg):
+    try:
+        return value / arg
+    except Exception:
+        return "-"
+
+
+@register.filter
+def emphasize(text: str, words: str | Iterable[str]):
+    """
+    Make all instances of `words` in `text` <strong>bold</strong>.
+    Case insensitive.
+    """
+    if isinstance(words, str):
+        words = words.split(" ")
+    pattern = "|".join([w.lower() for w in words])
+    return mark_safe(re.sub(f"({pattern})", r"<strong>\1</strong>", text, flags=re.IGNORECASE))
+
+
+@register.filter
+@stringfilter
+def full_uri(value: str) -> str:
+    root_url = getattr(settings, "ROOT_URL", "")
+    return urljoin(root_url, value)
+
+
+@register.filter
+def in_language(value: str, language_code: str) -> str:
+    with override(language_code):
+        return str(value)
+
+
+@register.filter
+def modulo(value, arg):
+    try:
+        return int(value) % int(arg)
+    except Exception:
+        return None
+
+
+@register.filter
+def multiply(value, arg):
+    try:
+        return str(float(value) * float(arg))
+    except Exception:
+        return "-"
+
+
+@register.filter(name="natural_and_list")
+def natural_and_list_filter(value: Iterable) -> str:
+    return natural_and_list(value)
+
+
+@register.filter(name="natural_or_list")
+def natural_or_list_filter(value: Iterable) -> str:
+    return natural_or_list(value)
+
+
 @register.filter
 def naturaltime_short(value):
     return NaturalTimeShortFormatter.string_for(value)
+
+
+@register.filter
+def percent_of(part, whole) -> int:
+    """Rounded percentage. Usage: `{{ part|percent_of:whole }}%`"""
+    try:
+        if not isinstance(part, (int, float)):
+            part = int(part)
+        if not isinstance(whole, (int, float)):
+            whole = int(whole)
+        return percent_rounded(part, whole)
+    except ValueError:
+        return 0
+
+
+@register.filter
+@stringfilter
+def render(value: str) -> str:
+    try:
+        return template.Template(value).render(template.Context())
+    except Exception:
+        return value
+
+
+@register.filter
+def startswith(value: str, arg: str) -> bool:
+    try:
+        return value.startswith(arg)
+    except Exception:
+        return False
+
+
+@register.filter
+def subtract(value, arg):
+    try:
+        return value - arg
+    except Exception:
+        return "-"
 
 
 @register.filter(name="timedelta")
@@ -442,158 +597,3 @@ def timedelta_time(value: Any) -> str:
     minutes = int(value.total_seconds() % 3600 / 60)
     seconds = int(value.total_seconds() % 60)
     return "%02d:%02d:%02d" % (hours, minutes, seconds)
-
-
-@register.filter
-def in_language(value: str, language_code: str) -> str:
-    with override(language_code):
-        return str(value)
-
-
-@register.filter
-def multiply(value, arg):
-    try:
-        return str(float(value) * float(arg))
-    except Exception:
-        return "-"
-
-
-@register.filter
-def divide_by(value, arg):
-    try:
-        return value / arg
-    except Exception:
-        return "-"
-
-
-@register.filter
-def subtract(value, arg):
-    try:
-        return value - arg
-    except Exception:
-        return "-"
-
-
-@register.filter
-def modulo(value, arg):
-    try:
-        return int(value) % int(arg)
-    except Exception:
-        return None
-
-
-@register.filter
-def startswith(value: str, arg: str) -> bool:
-    try:
-        return value.startswith(arg)
-    except Exception:
-        return False
-
-
-@register.filter
-@stringfilter
-def render(value: str) -> str:
-    try:
-        return template.Template(value).render(template.Context())
-    except Exception:
-        return value
-
-
-@register.filter
-def add_str(value, arg) -> str:
-    return str(value) + str(arg)
-
-
-@register.filter
-def emphasize(text: str, words: str | Iterable[str]):
-    """
-    Make all instances of `words` in `text` <strong>bold</strong>.
-    Case insensitive.
-    """
-    if isinstance(words, str):
-        words = words.split(" ")
-    pattern = "|".join([w.lower() for w in words])
-    return mark_safe(re.sub(f"({pattern})", r"<strong>\1</strong>", text, flags=re.IGNORECASE))
-
-
-@register.filter(name="abs")
-def abs_value(value) -> int | None:
-    """
-    Simply returns the absolute value of `value`, or None if it cannot be
-    coerced to integer.
-    """
-    try:
-        return abs(int(value))
-    except TypeError:
-        return None
-
-
-@register.filter
-def delta_days(value) -> int | None:
-    """
-    Return number of days between now and `value`. Positive = future.
-    `value` may be a date or datetime object, or a string which can be parsed
-    with datetime.fromisoformat().
-    """
-    if isinstance(value, str):
-        try:
-            value = datetime.fromisoformat(value)
-        except ValueError:
-            pass
-    if isinstance(value, datetime):
-        value = value.date()
-    if isinstance(value, date):
-        return (value - timezone.localdate()).days
-    return None
-
-
-@register.filter
-def admin_boolean_icon(value: bool) -> str:
-    """
-    Taken from django.contrib.admin.templatetags.admin_list._boolean_icon(),
-    which is probably considered "internal", so I copied its code instead.
-    """
-    icon_url = static('admin/img/icon-%s.svg' % {True: 'yes', False: 'no', None: 'unknown'}[value])
-    return format_html('<img src="{}" alt="{}">', icon_url, value)
-
-
-@register.filter(name="capitalize")
-@stringfilter
-def capitalize_string(value: str) -> str:
-    return capitalize(value)
-
-
-@register.filter
-@stringfilter
-def full_uri(value: str) -> str:
-    root_url = getattr(settings, "ROOT_URL", "")
-    return urljoin(root_url, value)
-
-
-@register.filter(name="natural_and_list")
-def natural_and_list_filter(value: Iterable) -> str:
-    return natural_and_list(value)
-
-
-@register.filter(name="natural_or_list")
-def natural_or_list_filter(value: Iterable) -> str:
-    return natural_or_list(value)
-
-
-@register.filter
-def percent_of(part, whole) -> int:
-    """Rounded percentage. Usage: `{{ part|percent_of:whole }}%`"""
-    try:
-        if not isinstance(part, (int, float)):
-            part = int(part)
-        if not isinstance(whole, (int, float)):
-            whole = int(whole)
-        return percent_rounded(part, whole)
-    except ValueError:
-        return 0
-
-
-@register.filter
-def distinct(seq: Collection) -> list:
-    """Returns unique members of a collection."""
-    return list(set(seq))
