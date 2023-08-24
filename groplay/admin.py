@@ -99,14 +99,25 @@ class RelatedLinkMixin:
             )
         return related_obj
 
-    def get_related_changeform_link_list(self, related_queryset: QuerySet, display_attr: str | None = None):
+    def get_related_changeform_link_list(
+        self,
+        related_queryset: QuerySet,
+        display_attr: str | None = None,
+        container_classes: str = "",
+        item_classes: str = "",
+    ):
         """
         Returns links to changeform for each item in `related_queryset`,
-        separated by '<br />'. If queryset's model is not registered with the
-        AdminSite, returns the same list but without links.
+        each in their own <div class="related-changeform-link-list-item">. The
+        whole list is enclosed in a <div class="related-changeform-link-list">.
+        If queryset's model is not registered with the AdminSite, returns the
+        same list but without links.
 
         If `display_attr` is set, items are displayed using this attribute
         on the model instances. Otherwise by the model's __str__().
+
+        `container_classes` sets extra CSS classes on the containing <div>
+        element, `item_classes` sets them on each item's <div>.
 
         Usage:
 
@@ -121,23 +132,27 @@ class RelatedLinkMixin:
         """
         if self.admin_site.is_registered(related_queryset.model):
             opts = related_queryset.model._meta
-            return format_html("<br />".join(
-                [
-                    '<a href="%s">%s</a>' % (
-                        reverse(
-                            "admin:%s_%s_change" % (opts.app_label, opts.model_name),
-                            args=(quote(getattr(obj, opts.pk.attname)),),
-                            current_app=self.admin_site.name
-                        ),
-                        getattr(obj, display_attr) if display_attr else obj
-                    )
-                    for obj in related_queryset
-                ]
-            ))
-        return format_html("<br />".join([
-            str(getattr(obj, display_attr)) if display_attr else str(obj)
-            for obj in related_queryset
-        ]))
+            html = "".join([
+                '<div class="related-changeform-link-list-item %s"><a href="%s">%s</a></div>' % (
+                    item_classes,
+                    reverse(
+                        "admin:%s_%s_change" % (opts.app_label, opts.model_name),
+                        args=(quote(getattr(obj, opts.pk.attname)),),
+                        current_app=self.admin_site.name
+                    ),
+                    getattr(obj, display_attr) if display_attr else obj
+                )
+                for obj in related_queryset
+            ])
+        else:
+            html = "".join([
+                f'<div class="related-changeform-link-list-item {item_classes}">' +
+                str(getattr(obj, display_attr)) if display_attr else str(obj) +
+                "</div>"
+                for obj in related_queryset
+            ])
+
+        return format_html(f'<div class="related-changeform-link-list {container_classes}">{html}</div>')
 
     def get_related_changelist_link(
         self,
