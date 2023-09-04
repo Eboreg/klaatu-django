@@ -1,8 +1,6 @@
-autopep8
 beautifulsoup4
 Django>=3.2,<4
 djangorestframework
-flake8
 ipdb
 ipython
 isort
@@ -11,6 +9,5 @@ Pillow
 pipdeptree
 progressbar2
 pyflakes
-pylint
 python-dateutil
 types-python-dateutil
