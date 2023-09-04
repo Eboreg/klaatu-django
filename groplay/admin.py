@@ -193,12 +193,12 @@ class RelatedLinkMixin:
         related_field = obj._meta.get_field(related_name)
 
         if isinstance(related_field, ForeignObjectRel):
-            if proxy_model and issubclass(proxy_model, related_field.related_model):
+            if proxy_model and related_field.related_model and issubclass(proxy_model, related_field.related_model):
                 related_model = proxy_model
             else:
                 related_model = related_field.related_model
 
-            if self.admin_site.is_registered(related_model):
+            if related_model and self.admin_site.is_registered(related_model):
                 opts = related_model._meta
                 verbose_name = verbose_name or related_model._meta.verbose_name
                 verbose_name_plural = verbose_name_plural or related_model._meta.verbose_name_plural
@@ -222,7 +222,6 @@ class RelatedLinkMixin:
 
 class ExtendedModelAdmin(RelatedLinkMixin, admin.ModelAdmin):
     """Meant to collect all kinds of useful extra functionality."""
-    pass
 
 
 class ExtendedTabularInline(RelatedLinkMixin, admin.TabularInline):

@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "groplay_django"
+requires-python = ">=3.7"
+dynamic = ["version"]
+dependencies = [
+    "beautifulsoup4",
+    "Django>=3.2,<4",
+    "djangorestframework",
+    "groplay_python @ git+ssh://git@gitlab.groplay.com/groplay/groplay-python.git",
+    "Pillow",
+    "python-dateutil",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ipdb",
+    "ipython",
+    "isort",
+    "pip-tools",
+    "types-python-dateutil",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.dynamic]
+version = {attr = "groplay.__version__"}
+
+[tool.isort]
+combine_as_imports = true
+default_section = "THIRDPARTY"
+include_trailing_comma = true
+known_own = "groplay"
+known_django = "django"
+line_length = 119
+multi_line_output = 3
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "DJANGO", "OWN", "LOCALFOLDER"]
+skip = ".venv"
+
+[tool.mypy]
+check_untyped_defs = true
+exclude = "^\\.venv"
+files = "groplay"
+ignore_missing_imports = true
+show_error_codes = true
+
+[tool.pylint.main]
+ignore = [".git", "__pycache__"]
+
+[tool.pylint.format]
+max-line-length = 119
+
+[tool.pylint.messages_control]
+disable = [
+    "abstract-method",
+    "broad-exception-caught",
+    "consider-using-f-string",
+    "import-outside-toplevel",
+    "invalid-name",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "missing-module-docstring",
+    "pointless-string-statement",
+    "protected-access",
+    "redefined-builtin",
+    "too-few-public-methods",
+    "unnecessary-lambda-assignment",
+    "unspecified-encoding",
+    "unused-argument",
+]
+
+[tool.pylint.typecheck]
+generated-members = ["objects", "DoesNotExist"]

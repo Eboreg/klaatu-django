@@ -139,5 +139,5 @@ class PickleField(BinaryField):
             try:
                 return pickle.loads(value)
             except Exception as e:
-                raise ValidationError(f"{e.__class__} error in unpickling: {str(e)}")
+                raise ValidationError(f"{e.__class__} error in unpickling: {str(e)}") from e
         return value

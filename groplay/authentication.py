@@ -6,6 +6,6 @@ class AdminBasicAuthentication(BasicAuthentication):
     """Extending the basic auth to only allow superuser accounts"""
     def authenticate_credentials(self, userid, password, request=None):
         user, _ = super().authenticate_credentials(userid, password, request=request)
-        if not user.is_superuser:
+        if not getattr(user, "is_superuser", False):
             raise AuthenticationFailed('User is not superuser.')
         return (user, None)

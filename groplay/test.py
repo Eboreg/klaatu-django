@@ -50,16 +50,16 @@ class ExtendedTestCase(TestCase):
         for k, v in expected.items():
             try:
                 self.assertEqual(getattr(instance, k), v)
-            except self.failureException:
+            except self.failureException as e:
                 raise self.failureException(
                     "instance.%s (%s) != expected[\"%s\"] (%s)" % (k, getattr(instance, k), k, v)
-                )
+                ) from e
 
     def assertResponseJSONContains(
         self,
         response: HttpResponse,
         data: Any,
-        status_codes: List[int] = [200, 201]
+        status_codes: List[int] | None = None,
     ):
         """
         Assert response has any of `status_codes` and has a JSON body that
@@ -67,7 +67,7 @@ class ExtendedTestCase(TestCase):
         `data`.
         """
         content = json.loads(response.content)
-        self.assertIn(response.status_code, status_codes)
+        self.assertIn(response.status_code, status_codes or [200, 201])
         if isinstance(content, dict) and isinstance(data, dict):
             self.assertDictContains(content, data)
         elif isinstance(content, list) and isinstance(data, list):

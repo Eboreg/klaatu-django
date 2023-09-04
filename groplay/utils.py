@@ -26,10 +26,10 @@ from django.template.loader import render_to_string
 from django.urls import URLPattern, URLResolver
 from django.utils import timezone
 from django.utils.safestring import mark_safe
-from django.utils.translation import get_language, gettext as _, ngettext
+from django.utils.translation import get_language, gettext, ngettext
 
 if TYPE_CHECKING:
-    from django.utils.functional import _StrPromise
+    from django.utils.functional import _StrPromise  # type: ignore
 
 _T = TypeVar("_T")
 
@@ -191,7 +191,7 @@ def circulate(lst: list | tuple, rounds: int) -> list:
     if isinstance(lst, tuple):
         lst = list(lst)
     if lst and rounds:
-        for i in range(rounds):
+        for _ in range(rounds):
             val = lst.pop(0)
             lst.append(val)
     return lst
@@ -209,7 +209,7 @@ def extract_views_from_urlpatterns(
     app_name=None,
     app_names=None,
     only_parameterless=False,
-    urlkwargs=[]
+    urlkwargs=None,
 ):
     views = {}
     if urlpatterns is None:
@@ -231,7 +231,7 @@ def extract_views_from_urlpatterns(
                 views[view_name] = {
                     "app_name": app_name,
                     "url": base + str(p.pattern),
-                    "urlkwargs": urlkwargs + list(p.pattern.regex.groupindex),
+                    "urlkwargs": (urlkwargs or []) + list(p.pattern.regex.groupindex),
                 }
             except ViewDoesNotExist:
                 continue
@@ -263,7 +263,7 @@ def extract_views_from_urlpatterns(
                 app_name=_app_name,
                 app_names=app_names,
                 only_parameterless=only_parameterless,
-                urlkwargs=urlkwargs + list(p.pattern.regex.groupindex)
+                urlkwargs=(urlkwargs or []) + list(p.pattern.regex.groupindex)
             ))
     return {
         k: v
@@ -470,13 +470,17 @@ def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -
     if len(item_list) == 1:
         return enclose(item_list[0])
     if len(item_list) == 2:
-        return "%s %s %s" % (enclose(item_list[0]), _("or") if or_separated else _("and"), enclose(item_list[1]))
+        return "%s %s %s" % (
+            enclose(item_list[0]),
+            gettext("or") if or_separated else gettext("and"),
+            enclose(item_list[1]),
+        )
     vars = {"list": ", ".join([enclose(i) for i in item_list[:-1]]), "last_item": enclose(item_list[-1])}
     if or_separated:
         # Translators: %(list)s is a comma-separated list of >= 2 items.
-        return _("%(list)s, or %(last_item)s") % vars
+        return gettext("%(list)s, or %(last_item)s") % vars
     # Translators: %(list)s is a comma-separated list of >= 2 items.
-    return _("%(list)s, and %(last_item)s") % vars
+    return gettext("%(list)s, and %(last_item)s") % vars
 
 
 def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:

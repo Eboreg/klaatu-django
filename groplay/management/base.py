@@ -1,4 +1,5 @@
 import inspect
+from io import TextIOWrapper
 
 from django.core.files import locks
 from django.core.management.base import BaseCommand
@@ -15,6 +16,7 @@ class ExclusiveCommand(BaseCommand):
     this class instead of BaseCommand, and forget about it.
     """
     lockfile: str
+    _lockfile: TextIOWrapper
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

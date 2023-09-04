@@ -3,12 +3,14 @@ from datetime import date, datetime, timedelta
 from typing import Any, Collection, Dict, Iterable
 from urllib.parse import urljoin
 
+from groplay_python.utils import percent_rounded
+
 from django import template
 from django.conf import settings
 from django.contrib.humanize.templatetags.humanize import NaturalTimeFormatter
 from django.http.request import HttpRequest, QueryDict
 from django.template.base import token_kwargs
-from django.template.context import Context as Context
+from django.template.context import Context
 from django.template.defaultfilters import stringfilter
 from django.templatetags.static import static
 from django.urls import reverse
@@ -22,7 +24,6 @@ from groplay.utils import (
     capitalize,
     natural_and_list,
     natural_or_list,
-    percent_rounded,
     relativedelta_rounded,
     render_modal,
     timedelta_formatter,
@@ -93,12 +94,12 @@ class LinkNode(template.Node):
 
 
 class NaturalTimeShortFormatterMeta(type):
-    def __new__(cls, name, bases, dct):
+    def __new__(mcs, name, bases, dct):
         """
         The 'past' ones are identical to the originals, but I'm including them
         because the default Swedish translations are wrong.
         """
-        klass = super().__new__(cls, name, bases, dct)
+        klass = super().__new__(mcs, name, bases, dct)
         time_strings = getattr(klass, "time_strings", {})
         time_strings.update({
             'past-day': gettext_lazy('%(delta)s ago'),
@@ -123,36 +124,36 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
     want "1 month" here).
     """
     @classmethod
-    def string_for(cls, then):
-        if not isinstance(then, date):
-            return then
-        if not isinstance(then, datetime):
-            then = datetime.combine(then, datetime.min.time())
+    def string_for(cls, value):
+        if not isinstance(value, date):
+            return value
+        if not isinstance(value, datetime):
+            value = datetime.combine(value, datetime.min.time())
 
-        now = datetime.now(timezone.utc if timezone.is_aware(then) else None)
+        now = datetime.now(timezone.utc if timezone.is_aware(value) else None)
         # Make it as round as we want it:
-        relative_delta = relativedelta_rounded(now, then)
-        now = then + relative_delta
+        relative_delta = relativedelta_rounded(now, value)
+        now = value + relative_delta
 
-        if then < now:
+        if value < now:
             if abs(relative_delta.days) == 1:
                 return cls.time_strings["yesterday"]
-            delta = now - then
+            delta = now - value
             if delta.days != 0:
-                delta_str = timesince(then, now, time_strings=cls.past_substrings)
+                delta_str = timesince(value, now, time_strings=cls.past_substrings)
                 return cls.time_strings["past-day"] % {
                     "delta": delta_str.split(", ")[0]
                 }
         else:
             if abs(relative_delta.days) == 1:
                 return cls.time_strings["tomorrow"]
-            delta = then - now
+            delta = value - now
             if delta.days != 0:
-                delta_str = timeuntil(then, now, time_strings=cls.future_substrings)
+                delta_str = timeuntil(value, now, time_strings=cls.future_substrings)
                 return cls.time_strings["future-day"] % {
                     "delta": delta_str.split(", ")[0]
                 }
-        return super().string_for(then)
+        return super().string_for(value)
 
 
 ### TAGS ##################################

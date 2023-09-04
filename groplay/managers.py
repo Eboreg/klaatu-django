@@ -11,7 +11,7 @@ class FailSafeManager(models.Manager):
         try:
             return super().create(**kwargs)
         except Exception:
-            logger.error('Could not create {} object'.format(self.model.__name__), exc_info=True)
+            logger.error('Could not create %s object', self.model.__name__, exc_info=True)
             return None
 
     def create_quietly(self, **kwargs):

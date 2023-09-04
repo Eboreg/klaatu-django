@@ -51,7 +51,7 @@ class SortableStorage(Storage, Generic[_T]):
         raise NotImplementedError("SortableStorage subclasses must implement get_sort_value().")
 
     @abstractmethod
-    def list_recursive(self, path: str = "", sort: SortKeyArg = []) -> List[str]:
+    def list_recursive(self, path: str = "", sort: SortKeyArg | None = None) -> List[str]:
         """Recursively lists files in `path`, ordered by `sort`."""
         raise NotImplementedError("SortableStorage subclasses must implement list_recursive().")
 
@@ -78,7 +78,7 @@ class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
                 result.append(stat.st_mtime * multiplier)
         return result
 
-    def recurse(self, path: Path | str, sort: SortKeyArg = []) -> List[Path]:
+    def recurse(self, path: Path | str, sort: SortKeyArg | None = None) -> List[Path]:
         """
         Recursively gets Path objects for files in `path`, ordered by `sort`.
         """
@@ -90,8 +90,8 @@ class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
                 files.extend(self.recurse(entry))
             else:
                 files.append(entry)
-        return self.sort_by(files, sort)
+        return self.sort_by(files, sort or [])
 
-    def list_recursive(self, path="", sort=[]):
+    def list_recursive(self, path="", sort=None):
         full_path = self.path(path)
-        return [str(p)[len(full_path):].strip("/") for p in self.recurse(full_path, sort)]
+        return [str(p)[len(full_path):].strip("/") for p in self.recurse(full_path, sort or [])]

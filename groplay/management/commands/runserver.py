@@ -20,7 +20,7 @@ class WatchmanReloader(autoreload.WatchmanReloader):
 
     Don't watch anything in a venv package either, for performance reasons.
     """
-    def watched_files(self, include_globs):
+    def watched_files(self, include_globs=True):
         for f in super().watched_files(include_globs=include_globs):
             if (
                 not f.as_posix().startswith('/usr') and

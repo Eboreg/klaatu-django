@@ -107,7 +107,7 @@ class MultipleFormsMixin(FormMixin):
     def clean_forms(self, forms: Dict[str, Form]) -> bool:
         # TODO: Maybe make it more consistent with Django's clean*() methods
         # (don't return anything but update self.errors instead)
-        return all([form.is_valid() for form in forms.values()])
+        return all(form.is_valid() for form in forms.values())
 
 
 class MultipleFormsView(MultipleFormsMixin, FormView):

@@ -53,7 +53,7 @@ class IntermediatePageAction:
 
     @classmethod
     def as_function(cls):
-        @admin.display(description=cls.description)
+        @admin.display(description=cls.description)  # type: ignore
         def action_func(modeladmin, request, queryset):
             return cls(modeladmin, request, queryset).dispatch()
         action_func.__name__ = cls.__name__
