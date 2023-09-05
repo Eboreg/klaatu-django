@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class GroplayConfig(AppConfig):
-    name = 'groplay'
+    name = 'groplay_django'
