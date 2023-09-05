@@ -20,7 +20,7 @@ from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
-from groplay.utils import (
+from groplay_django.utils import (
     capitalize,
     natural_and_list,
     natural_or_list,
