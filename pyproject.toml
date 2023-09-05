@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "groplay_django"
+name = "groplay-django"
 requires-python = ">=3.7"
 dynamic = ["version"]
 dependencies = [
@@ -31,23 +31,23 @@ include-package-data = true
 find = {}
 
 [tool.setuptools.dynamic]
-version = {attr = "groplay.__version__"}
+version = {attr = "groplay_django.__version__"}
 
 [tool.isort]
 combine_as_imports = true
 default_section = "THIRDPARTY"
 include_trailing_comma = true
-known_own = "groplay"
+known_self = "groplay_django"
 known_django = "django"
 line_length = 119
 multi_line_output = 3
-sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "DJANGO", "OWN", "LOCALFOLDER"]
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "DJANGO", "SELF", "LOCALFOLDER"]
 skip = ".venv"
 
 [tool.mypy]
 check_untyped_defs = true
 exclude = "^\\.venv"
-files = "groplay"
+files = "groplay_django"
 ignore_missing_imports = true
 show_error_codes = true
 
