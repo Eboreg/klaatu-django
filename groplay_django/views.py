@@ -1,8 +1,9 @@
-from typing import Any, Dict, List, Mapping, Type
+from typing import Any, Mapping
 
 from django.conf import settings
 from django.contrib import messages
 from django.forms import Form
+from django.forms.utils import ErrorList
 from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import check_for_language
@@ -58,7 +59,7 @@ class MultipleFormsMixin(FormMixin):
     initial_data format: {form_prefix: {key: value, ...}, ...}
     form_classes format: {form_prefix: form_class, ...}
     """
-    form_classes: Mapping[str, Type[Form]] = {}
+    form_classes: Mapping[str, type[Form]] = {}
     request: HttpRequest
 
     def get_form_classes(self):
@@ -68,10 +69,10 @@ class MultipleFormsMixin(FormMixin):
         # Otherwise FormMixin.get_form() will mess with us
         return None
 
-    def get_initial_for(self, key: str) -> Dict[str, Any]:
+    def get_initial_for(self, key: str) -> dict[str, Any]:
         return {}
 
-    def get_form_kwargs_for(self, key: str) -> Dict[str, Any]:
+    def get_form_kwargs_for(self, key: str) -> dict[str, Any]:
         kwargs = {
             "initial": {
                 **self.get_initial().get(key, {}),
@@ -86,25 +87,25 @@ class MultipleFormsMixin(FormMixin):
             )
         return kwargs
 
-    def get_forms(self, form_classes: Mapping[str, Type[Form]]) -> Dict[str, Form]:
+    def get_forms(self, form_classes: Mapping[str, type[Form]]) -> dict[str, Form]:
         return {
             key: klass(**self.get_form_kwargs_for(key))
             for key, klass in form_classes.items()
         }
 
-    def get_form_errors(self, forms: Dict[str, Form]) -> Dict[str, List[str]]:
-        errors: Dict[str, List[str]] = {}
+    def get_form_errors(self, forms: dict[str, Form]) -> dict[str, ErrorList]:
+        errors: dict[str, ErrorList] = {}
         for prefix, form in forms.items():
             for key, value in form.errors.items():
                 if key == "__all__":
                     if "__all__" not in errors:
-                        errors["__all__"] = []
+                        errors["__all__"] = ErrorList()
                     errors["__all__"].extend(value)
                 else:
                     errors[f"{prefix}-{key}"] = value
         return errors
 
-    def clean_forms(self, forms: Dict[str, Form]) -> bool:
+    def clean_forms(self, forms: dict[str, Form]) -> bool:
         # TODO: Maybe make it more consistent with Django's clean*() methods
         # (don't return anything but update self.errors instead)
         return all(form.is_valid() for form in forms.values())

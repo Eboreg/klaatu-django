@@ -8,7 +8,7 @@ from importlib import import_module
 from os.path import basename, splitext
 from statistics import mean, median
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Dict, Iterable, TypeVar
+from typing import TYPE_CHECKING, Any, Iterable, TypeVar
 
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
@@ -234,7 +234,7 @@ def extract_views_from_urlpatterns(
     return dict(sorted(views.items(), key=lambda kv: kv[1]['app_name'] + kv[0]))
 
 
-def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
+def get_client_ip(meta_dict: dict[str, Any]) -> str | None:
     """
     Very basic, but still arguably does a better job than `django-ipware`, as
     that one doesn't take port numbers into account.
@@ -367,7 +367,7 @@ def render_modal(
     large=False,
     scrollable=False,
     center=False,
-    context: Dict[str, Any] | None = None,
+    context: dict[str, Any] | None = None,
 ):
     """
     Gets a Bootstrap modal from the template file `template_name`, renders it
@@ -449,7 +449,7 @@ def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
 
     if isinstance(obj, dict):
         return format_dict(obj)
-    if isinstance(obj, (list, QuerySet)):
+    if isinstance(obj, (list, QuerySet)):  # type: ignore
         return format_list_or_queryset(obj)
     return format_value(obj)
 

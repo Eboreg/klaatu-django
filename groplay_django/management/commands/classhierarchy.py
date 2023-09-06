@@ -1,11 +1,9 @@
-from typing import Dict, List
-
 from django.core.management.base import BaseCommand, CommandParser
 from django.utils.module_loading import import_string
 
 
 class Command(BaseCommand):
-    classes: Dict[type, List[type]] = {}
+    classes: dict[type, list[type]] = {}
     help = 'Outputs a reverse inheritance tree for a class.'
 
     def add_arguments(self, parser: CommandParser) -> None:

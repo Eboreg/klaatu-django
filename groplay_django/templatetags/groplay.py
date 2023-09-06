@@ -1,6 +1,6 @@
 import re
 from datetime import date, datetime, timedelta
-from typing import Any, Collection, Dict, Iterable
+from typing import Any, Collection, Iterable
 from urllib.parse import urljoin
 
 from groplay_python.utils import percent_rounded
@@ -326,7 +326,7 @@ def modal(
     center=False,
     **kwargs
 ) -> str:
-    render_context: Dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
+    render_context: dict[str, Any] = {k: v for k, v in context.flatten().items() if isinstance(k, str)}
     render_context.update(kwargs)
 
     return render_modal(

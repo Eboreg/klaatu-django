@@ -1,5 +1,5 @@
 import functools
-from typing import Any, Dict
+from typing import Any
 
 from rest_framework import serializers
 
@@ -56,7 +56,7 @@ class LanguageMixin:
     You probably want the corresponding view to inherit from
     `groplay.view_mixins.LanguageMixin`.
     """
-    context: Dict[str, Any]
+    context: dict[str, Any]
 
     @override_language
     def to_representation(self, instance):

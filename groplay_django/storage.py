@@ -2,7 +2,7 @@ import operator
 from abc import abstractmethod
 from enum import Enum, auto
 from pathlib import Path
-from typing import Collection, Generic, List, Tuple, TypeVar
+from typing import Collection, Generic, TypeVar
 
 from django.core.files.storage import FileSystemStorage as BaseFileSystemStorage, Storage
 
@@ -15,12 +15,12 @@ class SortKey(Enum):
     MTIME = auto()
 
 
-SortKeyWithOrder = Tuple[SortKey, bool]
+SortKeyWithOrder = tuple[SortKey, bool]
 SortKeyArg = Collection[SortKey | SortKeyWithOrder]
 _T = TypeVar("_T", bound=object)
 
 
-def normalize_sort_keys(keys: SortKeyArg) -> List[SortKeyWithOrder]:
+def normalize_sort_keys(keys: SortKeyArg) -> list[SortKeyWithOrder]:
     ret = []
     for key in keys:
         if isinstance(key, SortKey):
@@ -31,7 +31,7 @@ def normalize_sort_keys(keys: SortKeyArg) -> List[SortKeyWithOrder]:
 
 
 class SortableStorage(Storage, Generic[_T]):
-    def sort_by(self, files: Collection[_T], keys: SortKeyArg) -> List[_T]:
+    def sort_by(self, files: Collection[_T], keys: SortKeyArg) -> list[_T]:
         nkeys = normalize_sort_keys(keys)
         reverse_all = False
 
@@ -45,13 +45,13 @@ class SortableStorage(Storage, Generic[_T]):
     def get_sort_value(
         self,
         file: _T,
-        nkeys: List[SortKeyWithOrder],
+        nkeys: list[SortKeyWithOrder],
         reverse_all: bool
-    ) -> List[str | int | float]:
+    ) -> list[str | int | float]:
         raise NotImplementedError("SortableStorage subclasses must implement get_sort_value().")
 
     @abstractmethod
-    def list_recursive(self, path: str = "", sort: SortKeyArg | None = None) -> List[str]:
+    def list_recursive(self, path: str = "", sort: SortKeyArg | None = None) -> list[str]:
         """Recursively lists files in `path`, ordered by `sort`."""
         raise NotImplementedError("SortableStorage subclasses must implement list_recursive().")
 
@@ -59,7 +59,7 @@ class SortableStorage(Storage, Generic[_T]):
 class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
     def get_sort_value(self, file, nkeys, reverse_all):
         stat = file.stat()
-        result: List[str | int | float] = []
+        result: list[str | int | float] = []
         for (key, reverse) in nkeys:
             reverse = operator.xor(reverse, reverse_all)
             multiplier = -1 if reverse else 1
@@ -78,7 +78,7 @@ class FileSystemStorage(SortableStorage[Path], BaseFileSystemStorage):
                 result.append(stat.st_mtime * multiplier)
         return result
 
-    def recurse(self, path: Path | str, sort: SortKeyArg | None = None) -> List[Path]:
+    def recurse(self, path: Path | str, sort: SortKeyArg | None = None) -> list[Path]:
         """
         Recursively gets Path objects for files in `path`, ordered by `sort`.
         """

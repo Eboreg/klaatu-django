@@ -1,11 +1,11 @@
-from typing import Dict, Sequence, Tuple, Type, TypeVar
+from typing import Sequence, TypeVar
 
 from django.forms import Form
 
 AdminFieldsType = Sequence[str | Sequence[str]]
 
-AdminFieldsetsType = Sequence[Tuple[str | None, Dict[str, str | AdminFieldsType]]]
+AdminFieldsetsType = Sequence[tuple[str | None, dict[str, str | AdminFieldsType]]]
 
 _Form = TypeVar("_Form", bound=Form)
 
-FormType = Type[_Form]
+FormType = type[_Form]

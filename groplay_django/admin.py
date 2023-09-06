@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Sequence, Type, Union
+from typing import TYPE_CHECKING, Sequence
 
 from django.contrib import admin
 from django.contrib.admin.options import InlineModelAdmin
@@ -160,10 +160,10 @@ class RelatedLinkMixin:
         self,
         obj: Model | None,
         related_name: str,
-        proxy_model: Type[Model] | None = None,
+        proxy_model: type[Model] | None = None,
         show_zero: bool = True,
-        verbose_name: Union["_StrPromise", str, None] = None,
-        verbose_name_plural: Union["_StrPromise", str, None] = None
+        verbose_name: "_StrPromise | str | None" = None,
+        verbose_name_plural: "_StrPromise | str | None" = None
     ):
         """
         `related_name` should be the name of a many-to-many or many-to-one
@@ -246,7 +246,7 @@ class SeparateAddMixin(admin.ModelAdmin):
     add_fields: AdminFieldsType | None = None
     add_fieldsets: AdminFieldsetsType | None = None
     add_form: FormType | None = None
-    add_inlines: Sequence[Type[InlineModelAdmin]] | None = None
+    add_inlines: Sequence[type[InlineModelAdmin]] | None = None
     add_readonly_fields: Sequence[str] | None = None
 
     def get_add_exclude(self, request: HttpRequest) -> Sequence[str] | None:
@@ -258,7 +258,7 @@ class SeparateAddMixin(admin.ModelAdmin):
     def get_add_fieldsets(self, request: HttpRequest) -> AdminFieldsetsType | None:
         return self.add_fieldsets
 
-    def get_add_inlines(self, request: HttpRequest) -> Sequence[Type[InlineModelAdmin]] | None:
+    def get_add_inlines(self, request: HttpRequest) -> Sequence[type[InlineModelAdmin]] | None:
         return self.add_inlines
 
     def get_add_readonly_fields(self, request: HttpRequest) -> Sequence[str] | None:
