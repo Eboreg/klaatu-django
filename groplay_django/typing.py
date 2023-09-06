@@ -6,6 +6,6 @@ AdminFieldsType = Sequence[str | Sequence[str]]
 
 AdminFieldsetsType = Sequence[Tuple[str | None, Dict[str, str | AdminFieldsType]]]
 
-Form_co = TypeVar("Form_co", bound=Form)
+_Form = TypeVar("_Form", bound=Form)
 
-FormType = Type[Form_co]
+FormType = Type[_Form]

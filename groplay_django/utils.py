@@ -1,16 +1,13 @@
 import copy
-import functools
 import os
 import re
 import time
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from importlib import import_module
-from math import ceil, floor, log10
 from os.path import basename, splitext
 from statistics import mean, median
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator, List, Sequence, SupportsFloat, TypeVar
-from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
+from typing import TYPE_CHECKING, Any, Dict, Iterable, TypeVar
 
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
@@ -132,31 +129,6 @@ class Lock:
             remote_attempts += 1
 
 
-def append_query_to_url(url: str, params: dict, conditional_params: dict | None = None, safe: str = '') -> str:
-    """
-    Adds GET query from `params` to `url`, or appends it if there already is
-    one.
-
-    `conditional_params` will only be used if GET params with those keys are
-    not already present in the original url or in `params`.
-
-    Return the new url.
-    """
-    parts = urlsplit(url)
-    conditional_params = conditional_params or {}
-    qs = {
-        **conditional_params,
-        **parse_qs(parts.query),
-        **params,
-    }
-    parts = parts._replace(query=urlencode(qs, doseq=True, safe=safe))
-    return urlunsplit(parts)
-
-
-def can_coerce_to_int(value: Any) -> bool:
-    return to_int(value) is not None
-
-
 def capitalize(string: "str | _StrPromise | None", language: str | None = None) -> str:
     """
     Language-dependent word capitalization. For English, it capitalizes every
@@ -179,27 +151,7 @@ def capitalize(string: "str | _StrPromise | None", language: str | None = None) 
             if word and (idx == 0 or idx == len(words) - 1 or re.sub(r"\W", "", word).lower() not in non_capped):
                 words[idx] = word[0].upper() + word[1:]
         return " ".join(words)
-    else:
-        return string.capitalize()
-
-
-def circulate(lst: list | tuple, rounds: int) -> list:
-    """
-    Shifts `lst` left `rounds` times. Good for e.g. circulating colours in
-    a graph.
-    """
-    if isinstance(lst, tuple):
-        lst = list(lst)
-    if lst and rounds:
-        for _ in range(rounds):
-            val = lst.pop(0)
-            lst.append(val)
-    return lst
-
-
-def daterange(start_date: date, end_date: date) -> Iterator[date]:
-    for n in range(int((end_date - start_date).days)):
-        yield start_date + timedelta(days=n)
+    return string.capitalize()
 
 
 def extract_views_from_urlpatterns(
@@ -222,7 +174,7 @@ def extract_views_from_urlpatterns(
             try:
                 if only_parameterless and p.pattern.regex.groups > 0:
                     continue
-                elif p.name and namespace:
+                if p.name and namespace:
                     view_name = f"{namespace}:{p.name}"
                 elif p.name:
                     view_name = p.name
@@ -236,10 +188,8 @@ def extract_views_from_urlpatterns(
             except ViewDoesNotExist:
                 continue
         elif isinstance(p, URLResolver):
-            if p.app_name == "admin":
-                # Hack: Never include admin urls
-                continue
-            if only_parameterless and p.pattern.regex.groups > 0:
+            # Hack: Never include admin urls
+            if p.app_name == "admin" or (only_parameterless and p.pattern.regex.groups > 0):
                 continue
             try:
                 patterns = p.url_patterns
@@ -256,22 +206,18 @@ def extract_views_from_urlpatterns(
                     _app_name = p.urlconf_module.__package__
             else:
                 _app_name = app_name
-            views.update(extract_views_from_urlpatterns(
-                urlpatterns=patterns,
-                base=base + str(p.pattern),
-                namespace=_namespace,
-                app_name=_app_name,
-                app_names=app_names,
-                only_parameterless=only_parameterless,
-                urlkwargs=(urlkwargs or []) + list(p.pattern.regex.groupindex)
-            ))
-    return {
-        k: v
-        for k, v in sorted(
-            views.items(),
-            key=lambda kv: kv[1]["app_name"] + kv[0]
-        )
-    }
+            views.update(
+                extract_views_from_urlpatterns(
+                    urlpatterns=patterns,
+                    base=base + str(p.pattern),
+                    namespace=_namespace,
+                    app_name=_app_name,
+                    app_names=app_names,
+                    only_parameterless=only_parameterless,
+                    urlkwargs=(urlkwargs or []) + list(p.pattern.regex.groupindex),
+                )
+            )
+    return dict(sorted(views.items(), key=lambda kv: kv[1]['app_name'] + kv[0]))
 
 
 def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
@@ -303,104 +249,6 @@ def get_client_ip(meta_dict: Dict[str, Any]) -> str | None:
     return value
 
 
-def getitem_nullable(seq: Iterable[_T], idx: int, cond: Callable[[_T], bool] | None = None) -> _T | None:
-    """
-    If `seq` has an item at position `idx`, return that item. Otherwise return
-    None. Similar to how QuerySet's first() & last() operate.
-
-    With `cond` set, it first filters `seq` for items where this function
-    evaluates as True, then tries to get item `idx` from the resulting list.
-
-    Example:
-
-    seq = [23, 43, 12, 56, 75, 1]
-    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
-    # second_even == 56
-    seq = [1, 2, 3, 5, 7]
-    second_even = getitem_nullable(seq, 1, lambda item: item % 2 == 0)
-    # second_even == None
-    """
-    try:
-        if cond is not None:
-            return [item for item in seq if cond(item)][idx]
-        else:
-            return list(seq)[idx]
-    except IndexError:
-        return None
-
-
-def getitem0(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T:
-    if cond is None:
-        cond = lambda _: True
-    return [item for item in seq if cond(item)][0]
-
-
-def getitem0_nullable(seq: Iterable[_T], cond: Callable[[_T], bool] | None = None) -> _T | None:
-    return getitem_nullable(seq, 0, cond)
-
-
-def group_by(sequence: Sequence[_T], pred: Callable[[_T], Any]) -> Dict[Any, List[_T]]:
-    """
-    Groups `sequence` by the result of `pred` on each item. Returns dict with
-    those results as keys and sublists of `sequence` as values.
-    """
-    result = {}
-    for item in sequence:
-        key = pred(item)
-        if key not in result:
-            result[key] = [item]
-        else:
-            result[key].append(item)
-    return result
-
-
-def index_of_first(sequence: Sequence[_T], pred: Callable[[_T], bool]) -> int:
-    """
-    Tries to return the index of the first item in `sequence` for which the
-    function `pred` returns True. If no such item is found, return -1.
-    """
-    try:
-        return sequence.index(next(filter(pred, sequence)))
-    except StopIteration:
-        return -1
-
-
-def int_to_string(value: int | None, language: str, nbsp: bool = False) -> str:
-    # Format integer with correct thousand separators
-    if value is None:
-        return ""
-    if language == "sv":
-        # We probably should be checking for locale rather than language, but
-        # whatever
-        separator = " "
-    else:
-        separator = "."
-    if separator == " " and nbsp:
-        separator = "&nbsp;"
-    # Neat line of code, huh? :)
-    # 1. Use absolute value to get rid of minus sign
-    # 2. Reverse str(value) in order to group characters from the end
-    # 3. Split it by groups of 3 digits
-    # 4. Remove empty values generated by re.split()
-    # 5. Re-reverse the digits in each group & join them with separator string
-    # 6. Re-reverse the order of the groups
-    # 7. Add minus sign if value was negative
-    return (
-        ("-" if value < 0 else "") +
-        separator.join([v[::-1] for v in re.split(r"(\d{3})", str(abs(value))[::-1]) if v][::-1])
-    )
-
-
-def is_truthy(value: Any) -> bool:
-    """
-    Basically does `bool(value)`, except it also returns False for string
-    values "false", "no", and "0" (case insensitive).
-    """
-    if isinstance(value, str) and value.lower() in ("false", "no", "0"):
-        return False
-    return bool(value)
-
-
 def is_url_name(value: str) -> bool:
     """
     Really just a guess, based on a somewhat consistent naming of Django URLs.
@@ -414,31 +262,6 @@ def is_valid_email(value: Any) -> bool:
     except (ValidationError, TypeError):
         return False
     return True
-
-
-def lock(lockfile: str):
-    """Primitive mechanism to avoid concurrent execution of a function."""
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            if os.path.exists(lockfile):
-                raise LockException(f"Could not acquire lockfile: {lockfile}")
-
-            else:
-                with open(lockfile, "w") as f:
-                    f.write("LOCK")
-
-                result = func(*args, **kwargs)
-
-                # Multiple attempts just to be super sure I guess?
-                remote_attempts = 0
-                while os.path.exists(lockfile) and remote_attempts < 10:
-                    os.remove(lockfile)
-                    remote_attempts += 1
-
-                return result
-        return wrapper
-    return decorator
 
 
 def natural_and_list(items: Iterable, enclose_items_in_tag="") -> str:
@@ -485,17 +308,6 @@ def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -
 
 def natural_or_list(items: Iterable, enclose_items_in_tag="") -> str:
     return natural_list(items, or_separated=True, enclose_items_in_tag=enclose_items_in_tag)
-
-
-def nonulls(items: Iterable[_T | None]) -> List[_T]:
-    """Just filters away None values from `items`."""
-    return [item for item in items if item is not None]
-
-
-def percent_rounded(part: int | float, whole: int | float) -> int:
-    if not whole:
-        return 0
-    return round(part / whole * 100)
 
 
 def relativedelta_rounded(dt1: datetime, dt2: datetime) -> relativedelta:
@@ -581,36 +393,6 @@ def render_modal(
     return mark_safe(render_to_string(template_name=template_name, context=context, request=request))
 
 
-def round_to_n(x: int | float, n: int) -> SupportsFloat:
-    """
-    Rounds x to n significant digits, except if the result is a whole number
-    it is cast to int
-    """
-    if x == 0:
-        return x
-    else:
-        result = round(x, -int(floor(log10(abs(x)))) + (n - 1))
-        return int(result) if not result % 1 else result
-
-
-def round_up_timedelta(td: timedelta) -> timedelta:
-    """
-    If td > 30 min, round up to nearest hour. Otherwise, to nearest 10
-    minute mark. Could be extended for higher time units, but nevermind now.
-    """
-    td_minutes = td.total_seconds() / 60
-    if td_minutes > 30:
-        return timedelta(hours=ceil(td_minutes / 60))
-    if td_minutes >= 10:
-        return timedelta(minutes=int(td_minutes / 10) * 10 + 10)
-    return timedelta(minutes=10)
-
-
-def rounded_percentage(part: int | float, whole: int | float) -> SupportsFloat:
-    """Percentage rounded to 3 significant digits"""
-    return round_to_n((part / whole) * 100, 3) if whole != 0 else 0
-
-
 def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
     """
     Pretty formatter that outputs stuff the way I want it, no more, no less
@@ -621,10 +403,10 @@ def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
     def is_scalar(v: Any) -> bool:
         return isinstance(v, str) or not isinstance(v, Iterable)
 
-    if isinstance(obj, dict):
+    def format_dict(obj: dict) -> str:
         ret = "{"
-        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(list(obj.values())[0]))
         if len(obj) > 0:
+            multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(list(obj.values())[0]))
             if multiline:
                 ret += "\n"
             for key, value in obj.items():
@@ -637,10 +419,12 @@ def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
             if multiline:
                 ret += " " * (current_depth * indent)
         ret += "}"
-    elif isinstance(obj, (list, QuerySet)):  # type: ignore
+        return ret
+
+    def format_list_or_queryset(obj: list | QuerySet) -> str:
         ret = "["
-        multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(obj[0]))
         if len(obj) > 0:
+            multiline = len(obj) > 1 or (len(obj) == 1 and not is_scalar(obj[0]))
             if multiline:
                 ret += "\n"
             for value in obj:
@@ -652,10 +436,13 @@ def simple_pformat(obj: Any, indent: int = 4, current_depth: int = 0) -> str:
             if multiline:
                 ret += " " * (current_depth * indent)
         ret += "]"
-    else:
-        ret = format_value(obj)
+        return ret
 
-    return ret
+    if isinstance(obj, dict):
+        return format_dict(obj)
+    if isinstance(obj, (list, QuerySet)):
+        return format_list_or_queryset(obj)
+    return format_value(obj)
 
 
 def soupify(value: str | bytes) -> BeautifulSoup:
@@ -667,11 +454,6 @@ def soupify(value: str | bytes) -> BeautifulSoup:
     if isinstance(value, bytes):
         return BeautifulSoup(value, 'html.parser', from_encoding='utf-8')
     return BeautifulSoup(value, 'html.parser')
-
-
-def strip_url_query(url: str) -> str:
-    parts = urlsplit(url)
-    return urlunsplit((parts.scheme, parts.netloc, parts.path, '', parts.fragment))
 
 
 def time_querysets(*querysets: QuerySet, iterations=10, quiet=False):
@@ -729,19 +511,11 @@ def timedelta_formatter(
         if seconds and (not rounded or (not hours and not minutes)):
             time_str += "{}s".format(seconds)
         return time_str or "0s"
-    else:
-        time_list = []
-        if hours:
-            time_list.append(ngettext("%(hours)d hour", "%(hours)d hours", hours) % {"hours": hours})
-        if minutes and (not rounded or not hours):
-            time_list.append(ngettext("%(min)d min", "%(min)d min", minutes) % {"min": minutes})
-        if seconds and (not rounded or (not hours and not minutes)):
-            time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
-        return ", ".join(time_list)
-
-
-def to_int(value: Any, default: int | None = None) -> int | None:
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        return default
+    time_list = []
+    if hours:
+        time_list.append(ngettext("%(hours)d hour", "%(hours)d hours", hours) % {"hours": hours})
+    if minutes and (not rounded or not hours):
+        time_list.append(ngettext("%(min)d min", "%(min)d min", minutes) % {"min": minutes})
+    if seconds and (not rounded or (not hours and not minutes)):
+        time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
+    return ", ".join(time_list)

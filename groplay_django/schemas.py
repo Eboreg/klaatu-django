@@ -222,7 +222,7 @@ class BaseSchemaMixin:
             fields.update(self.optional_response_fields['default'])
         return list(fields)
 
-    def get_path_parameter_description(self, path, method, variable):
+    def get_path_parameter_description(self, path, method, variable) -> str | None:
         return None
 
     def get_path_parameter_type(self, path, method, variable):
@@ -427,10 +427,11 @@ class BaseSchema(BaseSchemaMixin, AutoSchema):
                 if 'default' not in schema:
                     try:
                         if isinstance(serializer, serializers.ListSerializer):
-                            model_field = serializer.child.Meta.model._meta.get_field(name)  # type: ignore
+                            meta = getattr(serializer.child, "Meta", None)
                         else:
-                            model_field = serializer.Meta.model._meta.get_field(name)
-                        if model_field.default != NOT_PROVIDED and not callable(model_field.default):
+                            meta = getattr(serializer, "Meta", None)
+                        model_field = meta.model._meta.get_field(name) if meta is not None else None
+                        if model_field and model_field.default != NOT_PROVIDED and not callable(model_field.default):
                             item_schema['properties'][name]['default'] = model_field.default
                     except (FieldDoesNotExist, AttributeError):
                         pass
@@ -504,7 +505,7 @@ class BaseSchema(BaseSchemaMixin, AutoSchema):
             if model is not None:
                 field_schema = self.map_model_field(model._meta.pk)
             elif field.pk_field is not None:
-                field_schema = self.map_field(field.pk_field)
+                field_schema = self.map_field(field.pk_field)  # type: ignore
 
         if not field_schema:
             field_schema = super().map_field(field)
@@ -516,8 +517,9 @@ class BaseSchema(BaseSchemaMixin, AutoSchema):
             field_schema['default'] = field.default
         else:
             try:
-                model_field = field.parent.Meta.model._meta.get_field(field.field_name)
-                if model_field.default != NOT_PROVIDED and not callable(model_field.default):
+                meta = getattr(field.parent, "Meta", None)
+                model_field = meta.model._meta.get_field(field.field_name) if meta is not None else None
+                if model_field and model_field.default != NOT_PROVIDED and not callable(model_field.default):
                     field_schema['default'] = model_field.default
             except (FieldDoesNotExist, AttributeError):
                 pass
@@ -550,8 +552,7 @@ class ModelViewMixin(BaseSchemaMixin):
         if method == 'GET':
             if self.is_list_view(path, method):
                 return f'List {object_name_plural}'
-            else:
-                return f'Get {object_name}'
+            return f'Get {object_name}'
         if method == 'POST':
             return f'Create {object_name}'
         if method == 'PUT':

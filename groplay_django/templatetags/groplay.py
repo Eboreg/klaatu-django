@@ -47,7 +47,7 @@ class EmailSection(template.Node):
         table_args = ["%s=\"%s\"" % (k, v) for k, v in table_kwargs.items()]
         td_args = []
         for name, value in self.kwargs.items():
-            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))
+            td_args.append("%s=\"%s\"" % (name, value.resolve(context)))  # type: ignore
         return "<table %s><tr><td %s>%s</td></tr></table>" % (
             " ".join(table_args),
             " ".join(td_args),
@@ -67,9 +67,9 @@ class LinkNode(template.Node):
         self.kwargs = kwargs
 
     def render(self, context: Context):
-        href = self.href.resolve(context, ignore_failures=True)
+        href = self.href.resolve(context, ignore_failures=True)  # type: ignore
         kwargs = {
-            key.replace("_", "-"): value.resolve(context, ignore_failures=True)
+            key.replace("_", "-"): value.resolve(context, ignore_failures=True)  # type: ignore
             for key, value in self.kwargs.items()
         }
         root_url = getattr(settings, "ROOT_URL", "")

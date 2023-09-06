@@ -124,8 +124,7 @@ class MultipleFormsView(MultipleFormsMixin, FormView):
         forms = self.get_forms(form_classes)
         if self.clean_forms(forms):
             return self.forms_valid(forms)
-        else:
-            return self.forms_invalid(forms)
+        return self.forms_invalid(forms)
 
     def forms_valid(self, forms) -> HttpResponse:
         return HttpResponseRedirect(self.get_success_url())

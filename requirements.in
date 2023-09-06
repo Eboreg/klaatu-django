@@ -7,8 +7,6 @@ ipython
 isort
 mypy>=0.910
 Pillow
-pipdeptree
-progressbar2
 pyflakes
 python-dateutil
 types-python-dateutil

@@ -1,4 +1,7 @@
 from rest_framework.permissions import BasePermission
+from rest_framework.request import Request
+
+from django.contrib.auth.models import AbstractUser
 
 
 class UserObjectPermissions(BasePermission):
@@ -20,11 +23,15 @@ class UserObjectPermissions(BasePermission):
         'DELETE': 'delete',
     }
 
+    def is_superuser(self, request: Request):
+        return isinstance(request.user, AbstractUser) and request.user.is_superuser
+
     def has_permission(self, request, view):
-        if request.user.is_superuser or not hasattr(view, 'get_queryset'):
+        get_queryset = getattr(view, "get_queryset", None)
+        if self.is_superuser(request) or get_queryset is None:
             return True
         try:
-            queryset = view.get_queryset()
+            queryset = get_queryset()
         except AssertionError:
             # This is _probably_ because the view does not use a queryset
             return True
@@ -37,7 +44,7 @@ class UserObjectPermissions(BasePermission):
         return True
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_superuser:
+        if self.is_superuser(request):
             return True
         if obj is not None and request.method in self.VERB_MAPPING and hasattr(obj, 'has_object_permission'):
             if request.user.is_authenticated:

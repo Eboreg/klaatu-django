@@ -25,16 +25,17 @@ class ExclusiveCommand(BaseCommand):
 
     def real_handle(self, *args, **options):
         if hasattr(self, "lockfile"):
-            self._lockfile = open(self.lockfile)
+            lockfile = self.lockfile
         else:
-            self._lockfile = open(inspect.getfile(self.__class__))
-        if locks.lock(self._lockfile, locks.LOCK_EX | locks.LOCK_NB):
-            try:
-                return self._handle(*args, **options)
-            finally:
-                locks.unlock(self._lockfile)
-        else:
-            self.stderr.write("This command is already running in another process.")
+            lockfile = inspect.getfile(self.__class__)
+        with open(lockfile) as self._lockfile:
+            if locks.lock(self._lockfile, locks.LOCK_EX | locks.LOCK_NB):
+                try:
+                    self._handle(*args, **options)
+                finally:
+                    locks.unlock(self._lockfile)
+            else:
+                self.stderr.write("This command is already running in another process.")
 
     def _handle(self, *args, **options):
         raise NotImplementedError("Default _handle() should have been overwritten by now?!")

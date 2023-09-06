@@ -13,7 +13,7 @@ from django.utils.html import format_html
 from .typing import AdminFieldsetsType, AdminFieldsType, FormType
 
 if TYPE_CHECKING:
-    from django.utils.functional import _StrPromise
+    from django.utils.functional import _StrPromise  # type: ignore
 
 
 class BooleanListFilter(admin.SimpleListFilter):
@@ -21,10 +21,12 @@ class BooleanListFilter(admin.SimpleListFilter):
         return [('1', 'Yes'), ('0', 'No')]
 
     def queryset(self, request, queryset):
-        if self.value() == '1':
+        value = self.value()
+        if value == '1':
             return queryset.filter(**{self.parameter_name: True})
-        if self.value() == '0':
+        if value == '0':
             return queryset.filter(**{self.parameter_name: False})
+        raise ValueError(f"Invalid value: {value}")
 
 
 class NoDeleteActionMixin:
@@ -185,7 +187,6 @@ class RelatedLinkMixin:
         @admin.display(description="users")
         def user_list_link(self, obj):
             return self.get_related_changelist_link(obj, "users")
-
         """
         if obj is None or obj._meta.pk is None:
             return None
@@ -218,6 +219,8 @@ class RelatedLinkMixin:
                     obj_count,
                     verbose_name if obj_count == 1 else verbose_name_plural
                 )
+
+        return None
 
 
 class ExtendedModelAdmin(RelatedLinkMixin, admin.ModelAdmin):
@@ -294,7 +297,7 @@ class SeparateAddMixin(admin.ModelAdmin):
             add_inlines = self.get_add_inlines(request)
             if add_inlines is not None:
                 return add_inlines
-        return super().get_inlines(request, obj)
+        return super().get_inlines(request, obj)  # type: ignore
 
     def get_readonly_fields(self, request, obj=None):
         if obj is None:

@@ -63,8 +63,7 @@ class IntermediatePageAction:
         if self.request.POST.get("post"):
             self.post()
             return None
-        else:
-            return self.get()
+        return self.get()
 
     def get(self):
         return TemplateResponse(

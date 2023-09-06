@@ -39,7 +39,7 @@ class SortableStorage(Storage, Generic[_T]):
             if key == SortKey.NAME:
                 reverse_all = reverse
 
-        return sorted(files, key=lambda f: self.get_sort_value(f, nkeys, reverse), reverse=reverse_all)
+        return sorted(files, key=lambda f: self.get_sort_value(f, nkeys, reverse_all), reverse=reverse_all)
 
     @abstractmethod
     def get_sort_value(

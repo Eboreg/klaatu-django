@@ -6,6 +6,7 @@ from typing import Tuple
 from PIL import Image
 
 from django.core.exceptions import ValidationError
+from django.core.files import File
 from django.db import models
 from django.db.models import BinaryField, Case, F, FloatField, IntegerField, Q, Value as V, When
 from django.db.models.expressions import Combinable, Expression
@@ -64,6 +65,7 @@ class ResizeImageFieldFile(ImageFieldFile):
     max_height: int | None
 
     def __init__(self, instance, field, name):
+        assert isinstance(field, ResizeImageField)
         self.max_height, self.max_width = field.max_height, field.max_width
         super().__init__(instance, field, name)
 
@@ -77,18 +79,19 @@ class ResizeImageFieldFile(ImageFieldFile):
         return (self.max_width is not None and image.width > self.max_width) or \
             (self.max_height is not None and image.height > self.max_height)
 
-    def save(self, name, content, save=True):
+    def save(self, name: str, content, save=True):
         super().save(name, content, save=save)
-        if hasattr(content, 'image'):
-            if self.should_resize(content.image):
+        content_image = getattr(content, "image", None)
+        if content_image:
+            if self.should_resize(content_image):
                 try:
                     image = Image.open(self.file)
                     fp = io.BytesIO()
-                    resized = image.resize(self.get_target_size(content.image))
+                    resized = image.resize(self.get_target_size(content_image))
                     resized.save(fp, format=image.format)
                     if self.name:
                         self.storage.delete(self.name)
-                    self.save(name, fp, save=save)
+                    self.save(name, File(fp), save=save)
                     fp.close()
                 except Exception:
                     logger.error(
