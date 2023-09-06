@@ -21,6 +21,7 @@ from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
 from groplay_django.utils import (
+    _get_param_list,
     capitalize,
     natural_and_list,
     natural_or_list,
@@ -220,13 +221,7 @@ def dynamic_modal(
 
     Extra kwargs whose keys do _not_ begin with "data_" will be ignored.
     """
-    required_params = required_params.strip()
-    optional_params = optional_params.strip()
-    param_list = (
-        (required_params.split(" ") if required_params else []) +
-        (optional_params.split(" ") if optional_params else [])
-    )
-
+    param_list = _get_param_list(required_params, optional_params)
     url = url.strip()
     if url and not url.startswith("/"):
         try:

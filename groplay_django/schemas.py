@@ -561,6 +561,7 @@ class ModelViewMixin(BaseSchemaMixin):
             return f'Patch {object_name}'
         if method == 'DELETE':
             return f'Delete {object_name}'
+        return None
 
     def get_404_response(self, path, method):
         """Refers to the object fetched by view.get_object()"""

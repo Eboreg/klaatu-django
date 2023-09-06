@@ -2,6 +2,7 @@ import copy
 import os
 import re
 import time
+from abc import ABCMeta
 from datetime import datetime, timedelta
 from importlib import import_module
 from os.path import basename, splitext
@@ -11,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterable, TypeVar
 
 from bs4 import BeautifulSoup
 from dateutil.relativedelta import relativedelta
+from rest_framework.serializers import SerializerMetaclass
 
 from django.conf import settings
 from django.core.exceptions import ValidationError, ViewDoesNotExist
@@ -71,6 +73,40 @@ class CastToDuration(Cast):
         return super().as_sqlite(compiler, connection, template=template, **extra_context)
 
 
+class FailSafeJSONEncoder(DjangoJSONEncoder):
+    """
+    A JSON encoder that will not fail, but its results cannot be used to
+    reliably restore the original data.
+    """
+    def default(self, o):
+        try:
+            return super().default(o)
+        except TypeError as e:
+            return str(e)
+
+
+class Lock:
+    """Does the same as `lock`, but as a context manager."""
+    def __init__(self, lockfile: str):
+        self.lockfile = lockfile
+
+    def __enter__(self):
+        if os.path.exists(self.lockfile):
+            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
+        with open(self.lockfile, "w") as f:
+            f.write("LOCKED")
+
+    def __exit__(self, *args, **kwargs):
+        remote_attempts = 0
+        while os.path.exists(self.lockfile) and remote_attempts < 10:
+            os.remove(self.lockfile)
+            remote_attempts += 1
+
+
+class LockException(Exception):
+    ...
+
+
 class ObjectJSONEncoder(DjangoJSONEncoder):
     """
     Somewhat enhanced JSON encoder, for when you want that sort of thing.
@@ -95,38 +131,16 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
             raise ex
 
 
-class FailSafeJSONEncoder(DjangoJSONEncoder):
+class SerializerABCMeta(SerializerMetaclass, ABCMeta):
     """
-    A JSON encoder that will not fail, but its results cannot be used to
-    reliably restore the original data.
+    To be used with "abstract" base serializer classes. Usage:
+
+    from abc import ABC
+    from rest_framework.serializers import Serializer
+
+    class MyBaseSerializer(Serializer, ABC, metaclass=SerializerABCMeta):
+        ...
     """
-    def default(self, o):
-        try:
-            return super().default(o)
-        except TypeError as e:
-            return str(e)
-
-
-class LockException(Exception):
-    ...
-
-
-class Lock:
-    """Does the same as `lock`, but as a context manager."""
-    def __init__(self, lockfile: str):
-        self.lockfile = lockfile
-
-    def __enter__(self):
-        if os.path.exists(self.lockfile):
-            raise LockException(f"Could not acquire lockfile: {self.lockfile}")
-        with open(self.lockfile, "w") as f:
-            f.write("LOCKED")
-
-    def __exit__(self, *args, **kwargs):
-        remote_attempts = 0
-        while os.path.exists(self.lockfile) and remote_attempts < 10:
-            os.remove(self.lockfile)
-            remote_attempts += 1
 
 
 def capitalize(string: "str | _StrPromise | None", language: str | None = None) -> str:
@@ -368,12 +382,7 @@ def render_modal(
     difference between the two kinds is that without the required parameters,
     openModalOnLoad() will refuse to open the modal.
     """
-    required_params = required_params.strip()
-    optional_params = optional_params.strip()
-    param_list = (
-        (required_params.split(" ") if required_params else []) +
-        (optional_params.split(" ") if optional_params else [])
-    )
+    param_list = _get_param_list(required_params, optional_params)
 
     if not modal_id:
         modal_id = splitext(basename(template_name))[0].replace("_", "-") + "-modal"
@@ -519,3 +528,12 @@ def timedelta_formatter(
     if seconds and (not rounded or (not hours and not minutes)):
         time_list.append(ngettext("%(sec)d sec", "%(sec)d sec", seconds) % {"sec": seconds})
     return ", ".join(time_list)
+
+
+def _get_param_list(required_params: str = "", optional_params: str = "") -> list[str]:
+    required_params = required_params.strip()
+    optional_params = optional_params.strip()
+    return (
+        (required_params.split(" ") if required_params else []) +
+        (optional_params.split(" ") if optional_params else [])
+    )
