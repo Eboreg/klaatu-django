@@ -1,11 +1,8 @@
 [build-system]
-requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+requires = ["setuptools"]
 
 [project]
-name = "groplay-django"
-requires-python = ">=3.7"
-dynamic = ["version"]
 dependencies = [
     "beautifulsoup4",
     "Django>=3.2,<4",
@@ -14,6 +11,9 @@ dependencies = [
     "Pillow",
     "python-dateutil",
 ]
+dynamic = ["version"]
+name = "groplay-django"
+requires-python = ">=3.10"
 
 [project.optional-dependencies]
 dev = [
@@ -22,7 +22,6 @@ dev = [
     "ipython",
     "isort",
     "mypy>=0.910",
-    "pip-tools",
     "pylint",
     "pylint-django",
     "types-python-dateutil",
@@ -41,8 +40,8 @@ version = {attr = "groplay_django.__version__"}
 combine_as_imports = true
 default_section = "THIRDPARTY"
 include_trailing_comma = true
-known_self = "groplay_django"
 known_django = "django"
+known_self = "groplay_django"
 line_length = 119
 multi_line_output = 3
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "DJANGO", "SELF", "LOCALFOLDER"]
