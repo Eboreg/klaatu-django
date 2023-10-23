@@ -7,7 +7,8 @@ dependencies = [
     "beautifulsoup4",
     "Django>=3.2,<4",
     "djangorestframework",
-    "groplay_python @ git+ssh://git@gitlab.groplay.com/groplay/groplay-python.git",
+    # "groplay_python @ git+ssh://git@gitlab.groplay.com/groplay/groplay-python.git",
+    "groplay_python",
     "Pillow",
     "python-dateutil",
 ]
