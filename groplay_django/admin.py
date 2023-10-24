@@ -26,7 +26,7 @@ class BooleanListFilter(admin.SimpleListFilter):
             return queryset.filter(**{self.parameter_name: True})
         if value == '0':
             return queryset.filter(**{self.parameter_name: False})
-        raise ValueError(f"Invalid value: {value}")
+        return queryset
 
 
 class NoDeleteActionMixin:
