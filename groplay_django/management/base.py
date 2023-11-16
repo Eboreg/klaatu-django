@@ -2,7 +2,35 @@ import inspect
 from io import TextIOWrapper
 
 from django.core.files import locks
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand as DjangoBaseCommand, CommandParser
+
+
+class BaseCommand(DjangoBaseCommand):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        setattr(self, "_handle", self.handle)
+        setattr(self, "handle", self.real_handle)
+
+    def add_arguments(self, parser: CommandParser):
+        super().add_arguments(parser)
+        parser.add_argument(
+            "--ipdb",
+            action="store_true",
+            help="Drop into IPDB shell at the start of execution.",
+        )
+
+    def real_handle(self, *args, **options):
+        if options["ipdb"]:
+            try:
+                import ipdb
+                ipdb.runcall(self._handle, *args, **options)
+            except ImportError as e:
+                raise Exception("--ipdb flag set, but ipdb could not be imported. Exiting!") from e
+        else:
+            self._handle(*args, **options)
+
+    def _handle(self, *args, **options):
+        raise NotImplementedError("Default _handle() should have been overwritten by now?!")
 
 
 class ExclusiveCommand(BaseCommand):
