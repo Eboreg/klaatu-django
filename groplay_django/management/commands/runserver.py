@@ -5,12 +5,20 @@ import sys
 from pathlib import Path
 
 import django
-from django.contrib.staticfiles.management.commands.runserver import Command as RunServerCommand
 from django.utils import autoreload
 
-DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
+from groplay_django.settings import gd_settings
 
+DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
 logger = logging.getLogger('django.utils.autoreload')
+
+if gd_settings.RUNSERVER.SERVER == "daphne":
+    try:
+        from daphne.management.commands.runserver import Command as RunServerCommand  # type: ignore
+    except ImportError:
+        from django.contrib.staticfiles.management.commands.runserver import Command as RunServerCommand
+else:
+    from django.contrib.staticfiles.management.commands.runserver import Command as RunServerCommand
 
 
 class WatchmanReloader(autoreload.WatchmanReloader):
@@ -30,12 +38,15 @@ class WatchmanReloader(autoreload.WatchmanReloader):
                 yield f
 
 
-class Command(RunServerCommand):
+class Command(RunServerCommand):  # type: ignore
+    default_addr = gd_settings.RUNSERVER.DEFAULT_ADDR
+    default_port = gd_settings.RUNSERVER.DEFAULT_PORT
+
     def run(self, **options):
         if options['use_reloader']:
-            run_with_reloader(self.inner_run, **options)  # type: ignore
+            run_with_reloader(self.inner_run, **options)
         else:
-            self.inner_run(None, **options)  # type: ignore
+            self.inner_run(None, **options)
 
 
 def get_reloader():

@@ -9,13 +9,15 @@ from django.utils.translation import override
 
 from .serializer_fields import FileURLField
 
+User = get_user_model()
+
 
 class UserMixin:
     def get_user(self):
         context = getattr(self, 'context', {})
         assert 'request' in context, 'request must be included in serializer context'
-        assert isinstance(context['request'].user, get_user_model()), \
-            'context["request"].user must be a User object'
+        assert isinstance(context['request'].user, User), \
+            f'context["request"].user must be a {User.__module__}.{User.__name__} object'
         return context['request'].user
 
 
@@ -29,7 +31,7 @@ class CreatedByMixin:
         context = getattr(self, 'context', {})
         try:
             user = context['request'].user
-            if isinstance(user, get_user_model()):
+            if isinstance(user, User):
                 validated_data.update(created_by=user)
         except (AttributeError, KeyError):
             pass

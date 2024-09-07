@@ -5,10 +5,10 @@ requires = ["setuptools"]
 [project]
 dependencies = [
     "beautifulsoup4",
-    "Django>=3.2,<4",
+    "Django>=3.2",
+    # "Django>=3.2,<4",
     "djangorestframework",
-    # "groplay_python @ git+ssh://git@gitlab.groplay.com/groplay/groplay-python.git",
-    "groplay_python",
+    "groplay_python @ git+https://git@github.com/Eboreg/groplay-python.git",
     "Pillow",
     "python-dateutil",
 ]
@@ -67,7 +67,9 @@ disable = [
     "abstract-method",
     "assignment-from-none",
     "broad-exception-caught",
+    "broad-exception-raised",
     "consider-using-f-string",
+    "django-not-configured",
     "import-outside-toplevel",
     "invalid-name",
     "missing-class-docstring",
@@ -83,6 +85,7 @@ disable = [
     "too-many-locals",
     "too-many-return-statements",
     "too-many-statements",
+    "ungrouped-imports",
     "unnecessary-lambda-assignment",
     "unspecified-encoding",
     "unused-argument",

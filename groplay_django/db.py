@@ -74,9 +74,11 @@ class ResizeImageFieldFile(ImageFieldFile):
         divider = max([width_divider, height_divider])
         return int(image.width / divider), int(image.height / divider)
 
-    def should_resize(self, image) -> bool:
-        return (self.max_width is not None and image.width > self.max_width) or \
+    def should_resize(self, image: Image.Image) -> bool:
+        return (
+            (self.max_width is not None and image.width > self.max_width) or
             (self.max_height is not None and image.height > self.max_height)
+        )
 
     def save(self, name: str, content, save=True):
         super().save(name, content, save=save)

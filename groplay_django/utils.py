@@ -117,7 +117,7 @@ class ObjectJSONEncoder(DjangoJSONEncoder):
     def default(self, o):
         if isinstance(o, Model):
             return str(o.pk)
-        if isinstance(o, QuerySet):  # type: ignore
+        if isinstance(o, QuerySet):
             return list(o)
         if isinstance(o, bytes):
             return "[Binary data]"
@@ -314,9 +314,9 @@ def natural_list(items: Iterable, or_separated=False, enclose_items_in_tag="") -
         )
     vars = {"list": ", ".join([enclose(i) for i in item_list[:-1]]), "last_item": enclose(item_list[-1])}
     if or_separated:
-        # Translators: %(list)s is a comma-separated list of >= 2 items.
+        # Translators: %(list)s is a comma-separated list of 2 or more items.
         return gettext("%(list)s, or %(last_item)s") % vars
-    # Translators: %(list)s is a comma-separated list of >= 2 items.
+    # Translators: %(list)s is a comma-separated list of 2 or more items.
     return gettext("%(list)s, and %(last_item)s") % vars
 
 
