@@ -372,7 +372,7 @@ def render_modal(
     """
     Gets a Bootstrap modal from the template file `template_name`, renders it
     with context from the parameters, and returns the result. The template
-    file will preferably extend groplay/modals/base.html.
+    file will preferably extend klaatu/modals/base.html.
 
     `required_params` and `optional_params` are there to tell the JS function
     openModalOnLoad() which GET params to look for. The required ones will

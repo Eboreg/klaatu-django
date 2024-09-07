@@ -1,7 +1,7 @@
 from django.core.management.base import CommandParser
 from django.utils.module_loading import import_string
 
-from groplay_django.management.base import BaseCommand
+from klaatu_django.management.base import BaseCommand
 
 
 class Command(BaseCommand):

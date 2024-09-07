@@ -8,12 +8,12 @@ dependencies = [
     "Django>=3.2",
     # "Django>=3.2,<4",
     "djangorestframework",
-    "groplay_python @ git+https://git@github.com/Eboreg/groplay-python.git",
+    "klaatu_python @ git+https://git@github.com/Eboreg/klaatu-python.git",
     "Pillow",
     "python-dateutil",
 ]
 dynamic = ["version"]
-name = "groplay-django"
+name = "klaatu-django"
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
@@ -35,14 +35,14 @@ include-package-data = true
 find = {}
 
 [tool.setuptools.dynamic]
-version = {attr = "groplay_django.__version__"}
+version = {attr = "klaatu_django.__version__"}
 
 [tool.isort]
 combine_as_imports = true
 default_section = "THIRDPARTY"
 include_trailing_comma = true
 known_django = "django"
-known_self = "groplay_django"
+known_self = "klaatu_django"
 line_length = 119
 multi_line_output = 3
 sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "DJANGO", "SELF", "LOCALFOLDER"]
@@ -51,7 +51,7 @@ skip = ".venv"
 [tool.mypy]
 check_untyped_defs = true
 exclude = "^\\.venv"
-files = "groplay_django"
+files = "klaatu_django"
 ignore_missing_imports = true
 show_error_codes = true
 

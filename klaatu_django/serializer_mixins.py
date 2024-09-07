@@ -56,7 +56,7 @@ class LanguageMixin:
     response in that language.
 
     You probably want the corresponding view to inherit from
-    `groplay.view_mixins.LanguageMixin`.
+    `klaatu_django.view_mixins.LanguageMixin`.
     """
     context: dict[str, Any]
 

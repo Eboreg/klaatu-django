@@ -16,7 +16,7 @@ class CustomCheckboxSelectMultiple(forms.CheckboxSelectMultiple):
         option_wrapper_class="col-12 col-lg-6"
     )
     """
-    template_name = "groplay/widgets/custom_checkbox_select.html"
+    template_name = "klaatu/widgets/custom_checkbox_select.html"
     field_wrapper_class = ""
     option_wrapper_class = ""
 

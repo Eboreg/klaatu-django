@@ -7,7 +7,7 @@ from pathlib import Path
 import django
 from django.utils import autoreload
 
-from groplay_django.settings import gd_settings
+from klaatu_django.settings import gd_settings
 
 DJANGO_AUTORELOAD_ENV = 'RUN_MAIN'
 logger = logging.getLogger('django.utils.autoreload')

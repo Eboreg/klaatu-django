@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Collection, Iterable
 from urllib.parse import urljoin
 
-from groplay_python.utils import percent_rounded
+from klaatu_python.utils import percent_rounded
 
 from django import template
 from django.conf import settings
@@ -20,7 +20,7 @@ from django.utils.safestring import mark_safe
 from django.utils.timesince import timesince, timeuntil
 from django.utils.translation import gettext_lazy, ngettext_lazy, override
 
-from groplay_django.utils import (
+from klaatu_django.utils import (
     _get_param_list,
     capitalize,
     natural_and_list,
@@ -131,6 +131,7 @@ class NaturalTimeShortFormatter(NaturalTimeFormatter, metaclass=NaturalTimeShort
         if not isinstance(value, datetime):
             value = datetime.combine(value, datetime.min.time())
 
+        # pylint:disable=no-member
         now = datetime.now(timezone.utc if timezone.is_aware(value) else None)
         # Make it as round as we want it:
         relative_delta = relativedelta_rounded(now, value)
@@ -192,7 +193,7 @@ def do_link(parser: template.base.Parser, token: template.base.Token):
     return LinkNode(nodelist, href, **kwargs)
 
 
-@register.inclusion_tag("groplay/modals/dynamic.html")
+@register.inclusion_tag("klaatu/modals/dynamic.html")
 def dynamic_modal(
     modal_id: str,
     url: str = "",
@@ -205,14 +206,14 @@ def dynamic_modal(
     **kwargs,
 ):
     """
-    Includes the Bootstrap modal "skeleton" from groplay/modals/dynamic.html
+    Includes the Bootstrap modal "skeleton" from klaatu/modals/dynamic.html
     and renders it in a similar way to `modal()`, except it also sets
     `data-content-url` on the .modal element. On modal show event, the JS
     function loadDynamicContent() will load the contents from this URL into
     the modal.
 
     The template rendered by this URL will preferably extend
-    groplay/modals/dynamic_content.html.
+    klaatu/modals/dynamic_content.html.
 
     Any extra **kwargs, whose key begins with "data_", will be added to the
     .modal element as "data-" attributes.
@@ -344,7 +345,7 @@ def modal(
     )
 
 
-@register.inclusion_tag("groplay/preloader.html")
+@register.inclusion_tag("klaatu/preloader.html")
 def preloader(
     id: str | None = None,
     position="absolute",
@@ -357,7 +358,7 @@ def preloader(
 ):
     """
     Inserts a .preloader element, which will then be shown and hidden by JS.
-    Extend groplay/preloader.html to customize it.
+    Extend klaatu/preloader.html to customize it.
 
     @param show Show preloader on load
     @param large If False, shrink font & image sizes to 75%; else 100%

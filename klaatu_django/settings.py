@@ -66,4 +66,4 @@ class Settings(SettingsBase):
     RUNSERVER: RunServerSettings = field(init=False)
 
 
-gd_settings = Settings(getattr(settings, "GROPLAY_DJANGO", None))
+gd_settings = Settings(getattr(settings, "KLAATU_DJANGO", None))

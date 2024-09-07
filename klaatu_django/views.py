@@ -16,7 +16,7 @@ class LanguageMixin:
     """
     To be used with Django REST Framework views. Sets 'language' in the
     context of the serializer (which, preferably, should inherit from
-    `groplay.serializer_mixins.LanguageMixin`).
+    `klaatu_django.serializer_mixins.LanguageMixin`).
     """
     request: Any
 
