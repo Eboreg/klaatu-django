@@ -96,9 +96,9 @@ class ResizeImageFieldFile(ImageFieldFile):
                     fp.close()
                 except Exception:
                     logger.error(
-                        'ResizeImageFieldFile: Could not resize image',
+                        "ResizeImageFieldFile: Could not resize image",
                         exc_info=True,
-                        extra={'filename': name, 'instance': self.instance}
+                        extra={"filename": name, "instance": self.instance}
                     )
 
 
@@ -116,8 +116,10 @@ class TruncatedCharField(models.CharField):
         value = super().to_python(value)
         if value and self.max_length and len(value) > self.max_length:
             logger.warning(
-                'Value of TruncatedCharField exceeds max_length',
-                extra={'model': getattr(self, 'model', None), 'value': value}
+                "Value of TruncatedCharField '%s' exceeds max_length (%d)",
+                self.name,
+                self.max_length,
+                extra={"model": getattr(self, "model", None), "value": value}
             )
             return value[:self.max_length]
         return value
