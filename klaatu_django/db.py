@@ -116,9 +116,10 @@ class TruncatedCharField(models.CharField):
         value = super().to_python(value)
         if value and self.max_length and len(value) > self.max_length:
             logger.warning(
-                "Value of TruncatedCharField '%s' exceeds max_length (%d)",
+                "Value of TruncatedCharField '%s' exceeds max_length %d (%d)",
                 self.name,
                 self.max_length,
+                len(value),
                 extra={"model": getattr(self, "model", None), "value": value}
             )
             return value[:self.max_length]
