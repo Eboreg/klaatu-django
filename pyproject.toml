@@ -8,13 +8,19 @@ dependencies = [
     "Django>=3.2",
     # "Django>=3.2,<4",
     "djangorestframework",
-    "klaatu_python @ git+https://git@github.com/Eboreg/klaatu-python.git",
+    "klaatu-python",
     "Pillow",
     "python-dateutil",
 ]
 dynamic = ["version"]
 name = "klaatu-django"
 requires-python = ">=3.10"
+authors = [
+    {name = "Robert Huselius", email = "robert@huseli.us"},
+]
+license = "GPL-3.0-only"
+license-files = ["LICENSE"]
+readme = "README.md"
 
 [project.optional-dependencies]
 dev = [
@@ -27,6 +33,11 @@ dev = [
     "pylint-django",
     "types-python-dateutil",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Eboreg/klaatu-django"
+Source = "https://github.com/Eboreg/klaatu-django"
+Issues = "https://github.com/Eboreg/klaatu-django/issues"
 
 [tool.setuptools]
 include-package-data = true
